@@ -496,7 +496,14 @@
         lastRemaining: null,
         fired: new Set(),
         zeroHandled: false,
+        finishTimeoutId: null,
+        generation: 0,
       };
+
+      let speechQueue = [];
+      let speechActive = false;
+      let speechActiveId = '';
+      let speechIds = new Set();
 
       function loadSettings() {
         try {
@@ -600,7 +607,7 @@
         $('timerTab').ariaSelected = mode === 'timer';
       }
 
-      function speak(text) {
+      function speak(text, eventId = '') {
         const message = text.trim();
         if (!message) return;
 
@@ -609,12 +616,48 @@
           return;
         }
 
-        speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(message.slice(0, 160));
+        const id = eventId || `manual-${Date.now()}-${Math.random()}`;
+        if (speechIds.has(id)) return;
+
+        if (speechQueue.length >= 5) {
+          const dropped = speechQueue.shift();
+          if (dropped) speechIds.delete(dropped.id);
+        }
+
+        speechQueue.push({ id, message });
+        speechIds.add(id);
+        processSpeechQueue();
+      }
+
+      function processSpeechQueue() {
+        if (speechActive || !speechQueue.length || !('speechSynthesis' in window)) return;
+
+        const item = speechQueue.shift();
+        speechActive = true;
+        speechActiveId = item.id;
+
+        const utterance = new SpeechSynthesisUtterance(item.message.slice(0, 160));
         utterance.lang = 'ja-JP';
         utterance.rate = Number(state.voice.rate) || 1;
+        utterance.onend = finishCurrentSpeech;
+        utterance.onerror = finishCurrentSpeech;
         speechSynthesis.speak(utterance);
-        showToast(`読み上げ: ${message}`);
+        showToast(`読み上げ: ${item.message}`);
+      }
+
+      function finishCurrentSpeech() {
+        if (speechActiveId) speechIds.delete(speechActiveId);
+        speechActive = false;
+        speechActiveId = '';
+        processSpeechQueue();
+      }
+
+      function cancelSpeechQueue() {
+        speechQueue = [];
+        speechIds = new Set();
+        speechActive = false;
+        speechActiveId = '';
+        if (window.speechSynthesis) speechSynthesis.cancel();
       }
 
       function updateClock() {
@@ -665,7 +708,7 @@
           if (crossed && announcement.firedKey !== firedKey) {
             announcement.firedKey = firedKey;
             saveSettingsToStorage();
-            speak(announcement.text);
+            speak(announcement.text, `clock-${firedKey}`);
           }
         });
       }
@@ -683,7 +726,16 @@
         return Math.max(0, timerDurationSeconds() - (runningElapsed + timer.pausedElapsed));
       }
 
+      function cancelPendingFinish() {
+        if (timer.finishTimeoutId !== null) {
+          clearTimeout(timer.finishTimeoutId);
+          timer.finishTimeoutId = null;
+        }
+      }
+
       function rebuildTimer() {
+        cancelPendingFinish();
+        timer.generation += 1;
         timer.running = false;
         timer.done = false;
         timer.pausedElapsed = 0;
@@ -691,14 +743,16 @@
         timer.fired = new Set();
         timer.zeroHandled = false;
 
-        if (window.speechSynthesis) speechSynthesis.cancel();
+        cancelSpeechQueue();
         renderTimer();
       }
 
       function startTimer() {
+        cancelPendingFinish();
         if (timer.done) rebuildTimer();
 
         if (!timer.running) {
+          timer.generation += 1;
           timer.startMono = performance.now();
           timer.running = true;
           timer.lastRemaining = remainingSeconds();
@@ -714,7 +768,9 @@
         showToast('一時停止');
       }
 
-      function finishTimer() {
+      function finishTimer(expectedGeneration) {
+        timer.finishTimeoutId = null;
+        if (expectedGeneration !== timer.generation) return;
         timer.done = true;
         timer.running = false;
         timer.pausedElapsed = timerDurationSeconds();
@@ -732,7 +788,7 @@
 
           if (!timer.fired.has(index) && previous > threshold && remaining <= threshold) {
             timer.fired.add(index);
-            speak(announcement.text);
+            speak(announcement.text, `timer-${timer.generation}-${index}-${threshold}`);
           }
         });
 
@@ -743,10 +799,12 @@
           state.timerAnnouncements.forEach((announcement, index) => {
             if (announcement.enabled && Number(announcement.minutes) === 0 && !timer.fired.has(index)) {
               timer.fired.add(index);
-              speak(announcement.text);
+              speak(announcement.text, `timer-${timer.generation}-${index}-0`);
             }
           });
-          setTimeout(() => finishTimer(), 250);
+          const finishGeneration = timer.generation;
+          cancelPendingFinish();
+          timer.finishTimeoutId = setTimeout(() => finishTimer(finishGeneration), 250);
         }
       }
 
@@ -865,11 +923,38 @@
       }
 
       function validateSettings() {
+        let valid = true;
         document.querySelectorAll('.invalid').forEach((element) => element.classList.remove('invalid'));
-        if (Number(state.timerDurationMinutes) >= 1) return true;
 
-        $('timerDurationInput').classList.add('invalid');
-        return false;
+        const requireNumber = (selector, min, max, integer = true) => {
+          document.querySelectorAll(selector).forEach((element) => {
+            const value = Number(element.value);
+            const invalid = element.value === ''
+              || !Number.isFinite(value)
+              || value < min
+              || value > max
+              || (integer && !Number.isInteger(value));
+            if (invalid) {
+              element.classList.add('invalid');
+              valid = false;
+            }
+          });
+        };
+
+        requireNumber('#rateInput', 0.5, 1.5, false);
+
+        if (state.mode === 'clock') {
+          requireNumber('[data-ca][data-k="hour"]', 0, 23);
+          requireNumber('[data-ca][data-k="minute"]', 0, 59);
+          requireNumber('[data-ca][data-k="second"]', 0, 59);
+        }
+
+        if (state.mode === 'timer') {
+          requireNumber('#timerDurationInput', 1, 1440);
+          requireNumber('[data-ta][data-k="minutes"]', 0, 1440);
+        }
+
+        return valid;
       }
 
       function openSettings() {
@@ -910,12 +995,12 @@
       }
 
       function saveSettingsFromDialog() {
-        collectSettingsFromForm();
         if (!validateSettings()) {
-          showToast('タイマーの残り時間を確認してください');
+          showToast('入力値の範囲を確認してください');
           return;
         }
 
+        collectSettingsFromForm();
         saveSettingsToStorage();
         applyTheme();
         rebuildTimer();
