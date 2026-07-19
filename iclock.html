@@ -27,9 +27,9 @@
 (() => {
 const KEY='iclock.settings.v1';
 const defaults={version:1,mode:'clock',theme:'auto',offsetMinutes:0,voice:{rate:1},clockAnnouncements:[{enabled:false,hour:13,minute:55,second:0,text:'残り5分です'}],timerAnnouncements:[{enabled:true,seconds:5,text:'残り5秒です'},{enabled:true,seconds:0,text:'終了してください'}],sequences:[{name:'第1区間',seconds:8},{name:'第2区間',seconds:6},{name:'第3区間',seconds:4}]};
+const $=id=>document.getElementById(id); const clone=o=>JSON.parse(JSON.stringify(o));
 let state=load(); let lastClockDateKey='', lastDisplayTime=null, toastTimer=0;
 let timer={index:0,running:false,done:false,startMono:0,pausedElapsed:0,lastRemaining:null,fired:new Set(),zeroHandled:false};
-const $=id=>document.getElementById(id); const clone=o=>JSON.parse(JSON.stringify(o));
 function load(){try{const raw=localStorage.getItem(KEY); if(!raw)return clone(defaults); const v=JSON.parse(raw); if(v.version!==1)throw Error('version'); return {...clone(defaults),...v,voice:{...defaults.voice,...(v.voice||{})}}}catch(e){return clone(defaults)}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2400)}
