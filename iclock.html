@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>iClock - ローカル時計・シーケンスタイマー</title>
+  <title>iClock - ローカル時計・タイマー</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -154,25 +154,32 @@
     }
 
     .clock-face {
-      position: relative;
       display: inline-block;
     }
 
     .clock-seconds {
-      position: absolute;
-      right: .2em;
-      bottom: -.25em;
+      position: fixed;
+      right: clamp(.75rem, 2vw, 2rem);
+      bottom: clamp(.55rem, 1.4vw, 1.4rem);
       min-width: 2ch;
       color: var(--muted);
       font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-      font-size: clamp(1.4rem, 4vw, 4rem);
-      font-weight: 700;
+      font-size: clamp(2rem, 7vw, 6.5rem);
+      font-weight: 800;
       letter-spacing: 0;
-      opacity: .78;
+      opacity: .72;
+    }
+
+    .clock-meta {
+      position: fixed;
+      left: 50%;
+      bottom: clamp(.55rem, 1.4vw, 1.4rem);
+      transform: translateX(-50%);
+      white-space: nowrap;
     }
 
     #clockMode .main-time {
-      font-size: min(27vw, 58vh);
+      font-size: min(30vw, 70vh);
     }
 
     #timerMode .main-time {
@@ -340,23 +347,23 @@
         <div class="hero">
           <div class="clock-face">
             <div id="clockTime" class="main-time">00:00</div>
-            <div id="clockSeconds" class="clock-seconds">00</div>
           </div>
-          <div id="clockDate" class="sub"></div>
-          <div id="offsetBadge" class="badge">端末時刻</div>
+          <div id="clockSeconds" class="clock-seconds">00</div>
+          <div class="clock-meta">
+            <span id="clockDate" class="sub"></span>
+            <span id="offsetBadge" class="badge">端末時刻</span>
+          </div>
         </div>
       </section>
 
       <section id="timerMode" class="mode">
         <div class="hero">
-          <div id="timerTime" class="main-time">00:08</div>
+          <div id="timerTime" class="main-time">10:00</div>
           <div class="sub">
             <span id="timerStatus" class="badge status">停止中</span>
           </div>
           <div class="controls">
-            <button id="prevBtn">前へ</button>
             <button id="startPauseBtn" class="primary">開始</button>
-            <button id="nextBtn">次へ</button>
             <button id="resetBtn">リセット</button>
           </div>
           <p class="hint">ショートカット: Space=開始/一時停止/再開、R=リセット、Escape=設定を閉じる</p>
@@ -393,13 +400,22 @@
       </div>
 
       <div class="section">
-        <h2>タイマーシーケンス</h2>
-        <div id="seqRows"></div>
-        <button id="addSeq">シーケンス追加</button>
+        <h2>タイマー</h2>
+        <div class="grid">
+          <label>
+            残り時間（分）
+            <input id="timerDurationInput" type="number" min="1" step="1">
+          </label>
+          <label>
+            開始時刻
+            <input id="timerStartTimeInput" type="time">
+          </label>
+        </div>
+        <p class="hint">開始時刻を設定すると、時計の表示時刻がその時刻を通過したときにタイマーを自動開始します。</p>
       </div>
 
       <div class="section">
-        <h2>タイマー読み上げ（全シーケンス共通・最大5件）</h2>
+        <h2>タイマー読み上げ（最大5件）</h2>
         <div id="timerAnnounces"></div>
       </div>
 
@@ -438,18 +454,16 @@
         mode: 'clock',
         theme: 'auto',
         offsetMinutes: 0,
+        timerDurationMinutes: 10,
+        timerStartTime: '',
+        lastTimerStartKey: '',
         voice: { rate: 1 },
         clockAnnouncements: [
           { enabled: false, hour: 13, minute: 55, second: 0, text: '残り5分です' },
         ],
         timerAnnouncements: [
-          { enabled: true, seconds: 5, text: '残り5秒です' },
-          { enabled: true, seconds: 0, text: '終了してください' },
-        ],
-        sequences: [
-          { name: '第1区間', seconds: 8 },
-          { name: '第2区間', seconds: 6 },
-          { name: '第3区間', seconds: 4 },
+          { enabled: true, minutes: 5, text: '残り5分です' },
+          { enabled: true, minutes: 0, text: '終了してください' },
         ],
       };
 
@@ -465,7 +479,6 @@
       let lastDisplayTime = null;
       let toastTimer = 0;
       let timer = {
-        index: 0,
         running: false,
         done: false,
         startMono: 0,
@@ -483,14 +496,35 @@
           const saved = JSON.parse(raw);
           if (saved.version !== 1) throw new Error('Unsupported settings version');
 
-          return {
+          return normalizeSettings({
             ...clone(defaults),
             ...saved,
             voice: { ...defaults.voice, ...(saved.voice || {}) },
-          };
+          });
         } catch (error) {
           return clone(defaults);
         }
+      }
+
+      function normalizeSettings(settings) {
+        settings.timerDurationMinutes = Math.max(1, parseInt(settings.timerDurationMinutes || defaults.timerDurationMinutes, 10));
+        settings.timerStartTime = typeof settings.timerStartTime === 'string' ? settings.timerStartTime : '';
+        delete settings.sequences;
+
+        settings.timerAnnouncements = (settings.timerAnnouncements || []).slice(0, 5).map((announcement) => {
+          const minutes = announcement.minutes ?? (announcement.seconds ? Math.ceil(Number(announcement.seconds) / 60) : 0);
+          return {
+            enabled: Boolean(announcement.enabled),
+            minutes: Math.max(0, Number(minutes) || 0),
+            text: announcement.text || '',
+          };
+        });
+
+        if (!settings.timerAnnouncements.length) {
+          settings.timerAnnouncements = clone(defaults.timerAnnouncements);
+        }
+
+        return settings;
       }
 
       function saveSettingsToStorage() {
@@ -588,6 +622,7 @@
           : '端末時刻';
 
         checkClockAnnouncements(now);
+        checkScheduledTimerStart(now);
         lastDisplayTime = now;
       }
 
@@ -625,28 +660,20 @@
         });
       }
 
-      function validSequences() {
-        return state.sequences.filter((sequence) => sequence.name.trim() && Number(sequence.seconds) > 0);
-      }
-
-      function currentSequence() {
-        return validSequences()[timer.index] || null;
+      function timerDurationSeconds() {
+        return Math.max(1, Number(state.timerDurationMinutes) || 1) * 60;
       }
 
       function remainingSeconds() {
-        const sequence = currentSequence();
-        if (!sequence) return 0;
-
         if (!timer.running) {
-          return Math.max(0, Number(sequence.seconds) - timer.pausedElapsed);
+          return Math.max(0, timerDurationSeconds() - timer.pausedElapsed);
         }
 
         const runningElapsed = (performance.now() - timer.startMono) / 1000;
-        return Math.max(0, Number(sequence.seconds) - (runningElapsed + timer.pausedElapsed));
+        return Math.max(0, timerDurationSeconds() - (runningElapsed + timer.pausedElapsed));
       }
 
-      function rebuildTimer(index = 0) {
-        timer.index = Math.max(0, Math.min(index, validSequences().length - 1));
+      function rebuildTimer() {
         timer.running = false;
         timer.done = false;
         timer.pausedElapsed = 0;
@@ -659,12 +686,7 @@
       }
 
       function startTimer() {
-        if (!currentSequence()) {
-          showToast('有効なシーケンスがありません');
-          return;
-        }
-
-        if (timer.done) rebuildTimer(0);
+        if (timer.done) rebuildTimer();
 
         if (!timer.running) {
           timer.startMono = performance.now();
@@ -682,30 +704,21 @@
         showToast('一時停止');
       }
 
-      function nextSequence() {
-        if (timer.index < validSequences().length - 1) {
-          rebuildTimer(timer.index + 1);
-          return;
-        }
-
+      function finishTimer() {
         timer.done = true;
         timer.running = false;
-        timer.pausedElapsed = Number(currentSequence()?.seconds || 0);
+        timer.pausedElapsed = timerDurationSeconds();
         renderTimer();
-        showToast('全シーケンス終了');
-      }
-
-      function previousSequence() {
-        rebuildTimer(timer.index - 1);
+        showToast('タイマー終了');
       }
 
       function checkTimerAnnouncements(remaining) {
-        if (!timer.running || !currentSequence()) return;
+        if (!timer.running) return;
 
         const previous = timer.lastRemaining ?? remaining;
         state.timerAnnouncements.forEach((announcement, index) => {
-          const threshold = Number(announcement.seconds);
-          if (!announcement.enabled || !announcement.text || threshold < 0) return;
+          const threshold = Math.max(0, Number(announcement.minutes) || 0) * 60;
+          if (!announcement.enabled || !announcement.text) return;
 
           if (!timer.fired.has(index) && previous > threshold && remaining <= threshold) {
             timer.fired.add(index);
@@ -718,12 +731,12 @@
         if (remaining <= 0 && !timer.zeroHandled) {
           timer.zeroHandled = true;
           state.timerAnnouncements.forEach((announcement, index) => {
-            if (announcement.enabled && Number(announcement.seconds) === 0 && !timer.fired.has(index)) {
+            if (announcement.enabled && Number(announcement.minutes) === 0 && !timer.fired.has(index)) {
               timer.fired.add(index);
               speak(announcement.text);
             }
           });
-          setTimeout(() => nextSequence(), 250);
+          setTimeout(() => finishTimer(), 250);
         }
       }
 
@@ -735,12 +748,35 @@
         $('startPauseBtn').textContent = timer.running ? '一時停止' : (timer.pausedElapsed > 0 ? '再開' : '開始');
       }
 
+      function checkScheduledTimerStart(now) {
+        if (!state.timerStartTime || timer.running || timer.done) return;
+        if (!lastDisplayTime) return;
+
+        const [hour, minute] = state.timerStartTime.split(':').map(Number);
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return;
+
+        const targetSeconds = hour * 3600 + minute * 60;
+        const previousSeconds = secondsOfDay(lastDisplayTime);
+        const currentSeconds = secondsOfDay(now);
+        const todayKey = `${dateKey(now)}-${state.timerStartTime}`;
+        const crossed = currentSeconds >= previousSeconds
+          ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
+          : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+
+        if (crossed && state.lastTimerStartKey !== todayKey) {
+          state.lastTimerStartKey = todayKey;
+          saveSettingsToStorage();
+          startTimer();
+        }
+      }
+
       function renderSettings() {
         $('offsetInput').value = state.offsetMinutes;
         $('rateInput').value = state.voice.rate;
+        $('timerDurationInput').value = state.timerDurationMinutes;
+        $('timerStartTimeInput').value = state.timerStartTime;
         renderClockAnnouncements();
         renderTimerAnnouncements();
-        renderSequenceRows();
       }
 
       function renderClockAnnouncements() {
@@ -765,32 +801,15 @@
         container.innerHTML = '';
 
         for (let index = 0; index < 5; index += 1) {
-          const announcement = state.timerAnnouncements[index] || { enabled: false, seconds: 0, text: '' };
+          const announcement = state.timerAnnouncements[index] || { enabled: false, minutes: 0, text: '' };
           container.insertAdjacentHTML('beforeend', `
             <div class="timer-announce-row">
               <label>有効<input data-ta="${index}" data-k="enabled" type="checkbox" ${announcement.enabled ? 'checked' : ''}></label>
-              <label>残り秒<input data-ta="${index}" data-k="seconds" type="number" min="0" value="${announcement.seconds}"></label>
+              <label>残り分<input data-ta="${index}" data-k="minutes" type="number" min="0" step="1" value="${announcement.minutes ?? 0}"></label>
               <label>文章<input data-ta="${index}" data-k="text" value="${escapeHtml(announcement.text)}"></label>
             </div>
           `);
         }
-      }
-
-      function renderSequenceRows() {
-        const container = $('seqRows');
-        container.innerHTML = '';
-
-        state.sequences.forEach((sequence, index) => {
-          container.insertAdjacentHTML('beforeend', `
-            <div class="row">
-              <span>${index + 1}</span>
-              <label>名前<input data-seq="${index}" data-k="name" value="${escapeHtml(sequence.name)}"></label>
-              <label>秒<input data-seq="${index}" data-k="seconds" type="number" min="1" value="${sequence.seconds}"></label>
-              <button data-up="${index}">上へ</button>
-              <button data-del="${index}" class="danger">削除</button>
-            </div>
-          `);
-        });
       }
 
       function escapeHtml(value) {
@@ -804,6 +823,9 @@
 
       function collectSettingsFromForm() {
         state.offsetMinutes = parseInt($('offsetInput').value || '0', 10);
+        state.timerDurationMinutes = Math.max(1, parseInt($('timerDurationInput').value || '1', 10));
+        state.timerStartTime = $('timerStartTimeInput').value;
+        state.lastTimerStartKey = '';
         state.voice.rate = Number($('rateInput').value) || 1;
         state.clockAnnouncements = [];
         state.timerAnnouncements = [];
@@ -826,11 +848,6 @@
             : key === 'text' ? element.value : Number(element.value);
         });
 
-        document.querySelectorAll('[data-seq]').forEach((element) => {
-          const index = Number(element.dataset.seq);
-          const key = element.dataset.k;
-          state.sequences[index][key] = key === 'seconds' ? Number(element.value) : element.value;
-        });
 
         state.clockAnnouncements.forEach((announcement) => {
           announcement.firedKey = '';
@@ -838,18 +855,11 @@
       }
 
       function validateSettings() {
-        let valid = true;
         document.querySelectorAll('.invalid').forEach((element) => element.classList.remove('invalid'));
+        if (Number(state.timerDurationMinutes) >= 1) return true;
 
-        state.sequences.forEach((sequence, index) => {
-          if (!sequence.name.trim() || !(Number(sequence.seconds) > 0)) {
-            document.querySelectorAll(`[data-seq="${index}"]`).forEach((element) => element.classList.add('invalid'));
-            valid = false;
-          }
-        });
-
-        if (!validSequences().length) valid = false;
-        return valid;
+        $('timerDurationInput').classList.add('invalid');
+        return false;
       }
 
       function openSettings() {
@@ -870,14 +880,10 @@
         $('closeSettings').addEventListener('click', closeSettings);
         $('voiceBtn').addEventListener('click', () => speak('音声を有効化しました'));
         $('startPauseBtn').addEventListener('click', () => (timer.running ? pauseTimer() : startTimer()));
-        $('resetBtn').addEventListener('click', () => rebuildTimer(0));
-        $('nextBtn').addEventListener('click', nextSequence);
-        $('prevBtn').addEventListener('click', previousSequence);
+        $('resetBtn').addEventListener('click', () => rebuildTimer());
         $('resetOffsetBtn').addEventListener('click', () => { $('offsetInput').value = 0; });
         $('resetClockFired').addEventListener('click', resetClockAnnouncementState);
         $('testVoice').addEventListener('click', () => speak($('testText').value));
-        $('addSeq').addEventListener('click', addSequenceRow);
-        $('seqRows').addEventListener('click', handleSequenceRowClick);
         $('saveSettings').addEventListener('click', saveSettingsFromDialog);
         $('resetAll').addEventListener('click', resetAllSettings);
         $('themeBtn').addEventListener('click', toggleTheme);
@@ -892,34 +898,16 @@
         showToast('時計読み上げ状態をリセットしました');
       }
 
-      function addSequenceRow() {
-        state.sequences.push({ name: '新規区間', seconds: 60 });
-        renderSequenceRows();
-      }
-
-      function handleSequenceRowClick(event) {
-        if (event.target.dataset.del) {
-          state.sequences.splice(Number(event.target.dataset.del), 1);
-          renderSequenceRows();
-        }
-
-        if (event.target.dataset.up && Number(event.target.dataset.up) > 0) {
-          const index = Number(event.target.dataset.up);
-          [state.sequences[index - 1], state.sequences[index]] = [state.sequences[index], state.sequences[index - 1]];
-          renderSequenceRows();
-        }
-      }
-
       function saveSettingsFromDialog() {
         collectSettingsFromForm();
         if (!validateSettings()) {
-          showToast('シーケンス名と秒数を確認してください');
+          showToast('タイマーの残り時間を確認してください');
           return;
         }
 
         saveSettingsToStorage();
         applyTheme();
-        rebuildTimer(Math.min(timer.index, validSequences().length - 1));
+        rebuildTimer();
         showToast('設定を保存しました');
         closeSettings();
       }
@@ -929,7 +917,7 @@
 
         state = clone(defaults);
         saveSettingsToStorage();
-        rebuildTimer(0);
+        rebuildTimer();
         applyTheme();
         renderSettings();
         showToast('初期化しました');
@@ -952,7 +940,7 @@
         }
 
         if (event.key.toLowerCase() === 'r' && state.mode === 'timer') {
-          rebuildTimer(0);
+          rebuildTimer();
         }
       }
 
@@ -960,7 +948,7 @@
         applyTheme();
         setMode(state.mode);
         bindEvents();
-        rebuildTimer(0);
+        rebuildTimer();
         updateClock();
         setInterval(updateClock, 250);
         setInterval(renderTimer, 120);
