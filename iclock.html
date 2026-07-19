@@ -170,20 +170,20 @@
       opacity: .72;
     }
 
-    .clock-meta {
+    .bottom-meta {
       position: fixed;
       left: 50%;
       bottom: clamp(.55rem, 1.4vw, 1.4rem);
+      display: grid;
+      justify-items: center;
+      gap: .45rem;
       transform: translateX(-50%);
       white-space: nowrap;
     }
 
-    #clockMode .main-time {
-      font-size: min(30vw, 70vh);
-    }
-
+    #clockMode .main-time,
     #timerMode .main-time {
-      font-size: min(34vw, 58vh);
+      font-size: min(30vw, 70vh);
     }
 
     .sub {
@@ -318,12 +318,9 @@
         grid-template-columns: 1fr;
       }
 
-      #clockMode .main-time {
-        font-size: 20vw;
-      }
-
+      #clockMode .main-time,
       #timerMode .main-time {
-        font-size: 36vw;
+        font-size: 30vw;
       }
     }
   </style>
@@ -349,7 +346,7 @@
             <div id="clockTime" class="main-time">00:00</div>
           </div>
           <div id="clockSeconds" class="clock-seconds">00</div>
-          <div class="clock-meta">
+          <div class="clock-meta bottom-meta">
             <span id="clockDate" class="sub"></span>
             <span id="offsetBadge" class="badge">端末時刻</span>
           </div>
@@ -359,14 +356,16 @@
       <section id="timerMode" class="mode">
         <div class="hero">
           <div id="timerTime" class="main-time">10:00</div>
-          <div class="sub">
-            <span id="timerStatus" class="badge status">停止中</span>
+          <div class="timer-meta bottom-meta">
+            <div>
+              <span id="timerStatus" class="badge status">停止中</span>
+            </div>
+            <div class="controls">
+              <button id="startPauseBtn" class="primary">開始</button>
+              <button id="resetBtn">リセット</button>
+            </div>
+            <p class="hint">ショートカット: Space=開始/一時停止/再開、R=リセット、Escape=設定を閉じる</p>
           </div>
-          <div class="controls">
-            <button id="startPauseBtn" class="primary">開始</button>
-            <button id="resetBtn">リセット</button>
-          </div>
-          <p class="hint">ショートカット: Space=開始/一時停止/再開、R=リセット、Escape=設定を閉じる</p>
         </div>
       </section>
     </main>
