@@ -459,6 +459,8 @@
 
     (() => {
       const STORAGE_KEY = 'iclock.settings.v1';
+      const MAX_ANNOUNCEMENTS = 5;
+      const TIMER_FINISH_DELAY_MS = 250;
       const defaults = {
         version: 1,
         mode: 'clock',
@@ -529,20 +531,42 @@
         settings.timerStartTime = typeof settings.timerStartTime === 'string' ? settings.timerStartTime : '';
         delete settings.sequences;
 
-        settings.timerAnnouncements = (settings.timerAnnouncements || []).slice(0, 5).map((announcement) => {
+        settings.clockAnnouncements = normalizeClockAnnouncements(settings.clockAnnouncements);
+        settings.timerAnnouncements = normalizeTimerAnnouncements(settings.timerAnnouncements);
+
+        return settings;
+      }
+
+      function normalizeClockAnnouncements(announcements) {
+        const normalized = (announcements || []).slice(0, MAX_ANNOUNCEMENTS).map((announcement) => ({
+          enabled: Boolean(announcement.enabled),
+          hour: clampInteger(announcement.hour, 0, 23, 0),
+          minute: clampInteger(announcement.minute, 0, 59, 0),
+          second: clampInteger(announcement.second, 0, 59, 0),
+          text: announcement.text || '',
+          firedKey: typeof announcement.firedKey === 'string' ? announcement.firedKey : '',
+        }));
+
+        return normalized.length ? normalized : clone(defaults.clockAnnouncements);
+      }
+
+      function normalizeTimerAnnouncements(announcements) {
+        const normalized = (announcements || []).slice(0, MAX_ANNOUNCEMENTS).map((announcement) => {
           const minutes = announcement.minutes ?? (announcement.seconds ? Math.ceil(Number(announcement.seconds) / 60) : 0);
           return {
             enabled: Boolean(announcement.enabled),
-            minutes: Math.max(0, Number(minutes) || 0),
+            minutes: clampInteger(minutes, 0, 1440, 0),
             text: announcement.text || '',
           };
         });
 
-        if (!settings.timerAnnouncements.length) {
-          settings.timerAnnouncements = clone(defaults.timerAnnouncements);
-        }
+        return normalized.length ? normalized : clone(defaults.timerAnnouncements);
+      }
 
-        return settings;
+      function clampInteger(value, min, max, fallback) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return fallback;
+        return Math.min(max, Math.max(min, Math.trunc(number)));
       }
 
       function saveSettingsToStorage() {
@@ -590,6 +614,12 @@
         return date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds() + date.getMilliseconds() / 1000;
       }
 
+      function crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds) {
+        return currentSeconds >= previousSeconds
+          ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
+          : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+      }
+
       function applyTheme() {
         const theme = state.theme === 'auto'
           ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -620,12 +650,12 @@
         const id = eventId || `manual-${Date.now()}-${Math.random()}`;
         if (speechIds.has(id)) return;
 
-        while (speechQueue.length + (speechActive ? 1 : 0) >= 5 && speechQueue.length > 0) {
+        while (speechQueue.length + (speechActive ? 1 : 0) >= MAX_ANNOUNCEMENTS && speechQueue.length > 0) {
           const dropped = speechQueue.shift();
           if (dropped) speechIds.delete(dropped.id);
         }
 
-        if (speechQueue.length + (speechActive ? 1 : 0) >= 5) return;
+        if (speechQueue.length + (speechActive ? 1 : 0) >= MAX_ANNOUNCEMENTS) return;
 
         speechQueue.push({ id, message });
         speechIds.add(id);
@@ -709,9 +739,7 @@
             + Number(announcement.minute) * 60
             + (Number(announcement.second) || 0);
           const firedKey = `${todayKey}-${index}-${targetSeconds}`;
-          const crossed = currentSeconds >= previousSeconds
-            ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
-            : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+          const crossed = crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds);
 
           if (crossed && announcement.firedKey !== firedKey) {
             announcement.firedKey = firedKey;
@@ -812,7 +840,7 @@
           });
           const finishGeneration = timer.generation;
           cancelPendingFinish();
-          timer.finishTimeoutId = setTimeout(() => finishTimer(finishGeneration), 250);
+          timer.finishTimeoutId = setTimeout(() => finishTimer(finishGeneration), TIMER_FINISH_DELAY_MS);
         }
       }
 
@@ -835,9 +863,7 @@
         const previousSeconds = secondsOfDay(lastDisplayTime);
         const currentSeconds = secondsOfDay(now);
         const todayKey = `${dateKey(now)}-${state.timerStartTime}`;
-        const crossed = currentSeconds >= previousSeconds
-          ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
-          : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+        const crossed = crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds);
 
         if (crossed && state.lastTimerStartKey !== todayKey) {
           state.lastTimerStartKey = todayKey;
@@ -859,7 +885,7 @@
         const container = $('clockAnnounces');
         container.innerHTML = '';
 
-        for (let index = 0; index < 5; index += 1) {
+        for (let index = 0; index < MAX_ANNOUNCEMENTS; index += 1) {
           const announcement = state.clockAnnouncements[index] || { enabled: false, hour: 0, minute: 0, second: 0, text: '' };
           container.insertAdjacentHTML('beforeend', `
             <div class="announce-row">
@@ -877,7 +903,7 @@
         const container = $('timerAnnounces');
         container.innerHTML = '';
 
-        for (let index = 0; index < 5; index += 1) {
+        for (let index = 0; index < MAX_ANNOUNCEMENTS; index += 1) {
           const announcement = state.timerAnnouncements[index] || { enabled: false, minutes: 0, text: '' };
           container.insertAdjacentHTML('beforeend', `
             <div class="timer-announce-row">
