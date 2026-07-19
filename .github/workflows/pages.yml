@@ -21,10 +21,22 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PAGES_ENABLEMENT_TOKEN: ${{ secrets.PAGES_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Enable Pages with PAT
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN != '' }}
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+          token: ${{ env.PAGES_ENABLEMENT_TOKEN }}
+
+      - name: Verify Pages configuration
+        uses: actions/configure-pages@v6
 
       - name: Prepare site
         shell: bash
