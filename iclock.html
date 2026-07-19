@@ -964,6 +964,10 @@
         return { status: 'done' };
       }
 
+      function setAgendaOverrunState(isOverrun) {
+        document.querySelector('#agendaMode .agenda-stack').classList.toggle('is-overrun', isOverrun);
+      }
+
       function renderAgenda(now = getDisplayNow()) {
         const display = agendaDisplay(now);
 
@@ -979,7 +983,7 @@
 
         const item = display.item;
         const overrun = display.status === 'overrun';
-        document.querySelector('#agendaMode .agenda-stack').classList.toggle('is-overrun', overrun);
+        setAgendaOverrunState(overrun);
         $('agendaMessage').hidden = true;
         $('agendaDelta').hidden = false;
         const deltaText = formatAgendaDelta(display.seconds);
@@ -992,7 +996,7 @@
       }
 
       function renderAgendaMessage(message, detail) {
-        document.querySelector('#agendaMode .agenda-stack').classList.remove('is-overrun');
+        setAgendaOverrunState(false);
         $('agendaMessage').hidden = false;
         $('agendaDelta').hidden = true;
         $('agendaMessage').textContent = message;
