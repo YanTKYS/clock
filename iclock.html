@@ -392,7 +392,6 @@
           <div id="clockSeconds" class="clock-seconds">00</div>
           <div class="clock-meta bottom-meta">
             <span id="clockDate" class="sub"></span>
-            <span id="offsetBadge" class="badge">端末時刻</span>
           </div>
         </div>
       </section>
@@ -420,7 +419,6 @@
           <div id="agendaTitle" class="agenda-title"></div>
           <div class="agenda-meta bottom-meta">
             <span id="agendaState" class="agenda-state"></span>
-            <span id="agendaOffsetBadge" class="badge">端末時刻</span>
           </div>
         </div>
       </section>
@@ -433,20 +431,6 @@
         <h1 id="settingsTitle">設定</h1>
         <button id="closeSettings">閉じる</button>
       </header>
-
-      <div class="section setting-clock">
-        <h2>時計</h2>
-        <div class="grid">
-          <label>
-            表示オフセット（分）
-            <input id="offsetInput" type="number" step="1">
-          </label>
-          <div>
-            <button id="resetOffsetBtn">現在時刻に戻す</button>
-            <p class="hint">時計読み上げ判定は端末の実時刻ではなく、オフセット後の表示時刻を基準にします。</p>
-          </div>
-        </div>
-      </div>
 
       <div class="section setting-clock">
         <h2>時計読み上げ（最大5件）</h2>
@@ -482,7 +466,7 @@
             <input id="agendaOverrunInput" type="number" min="1" max="60" step="1">
           </label>
         </div>
-        <p class="hint">予定時刻を過ぎた直後は、この時間だけ直前の予定を超過表示します。判定には時計と同じ表示オフセットを使います。</p>
+        <p class="hint">予定時刻を過ぎた直後は、この時間だけ直前の予定を超過表示します。判定には端末時刻を使います。</p>
         <div id="agendaItems"></div>
         <button id="addAgendaItem">予定を追加</button>
       </div>
@@ -524,16 +508,13 @@
         version: 1,
         mode: 'clock',
         theme: 'auto',
-        offsetMinutes: 0,
         timerDurationMinutes: 10,
         timerStartTime: '',
         lastTimerStartKey: '',
+        clockFiredDateKey: '',
         agendaOverrunMinutes: 10,
-        agendaItems: [
-          { enabled: true, hour: 13, minute: 0, title: '開始', announceEnabled: false, announceText: '開始してください' },
-          { enabled: true, hour: 13, minute: 30, title: '次の予定', announceEnabled: false, announceText: '次の予定を開始してください' },
-          { enabled: true, hour: 14, minute: 0, title: '終了', announceEnabled: false, announceText: '終了してください' },
-        ],
+        agendaFiredDateKey: '',
+        agendaItems: [],
         voice: { rate: 1 },
         clockAnnouncements: [
           { enabled: false, hour: 13, minute: 55, second: 0, text: '残り5分です' },
@@ -552,8 +533,6 @@
       };
 
       let state = loadSettings();
-      let lastClockDateKey = '';
-      let lastAgendaDateKey = '';
       let lastDisplayTime = null;
       let toastTimer = 0;
       let timer = {
@@ -593,7 +572,10 @@
       }
 
       function normalizeSettings(settings) {
+        delete settings.offsetMinutes;
         if (!['clock', 'timer', 'agenda'].includes(settings.mode)) settings.mode = defaults.mode;
+        settings.clockFiredDateKey = typeof settings.clockFiredDateKey === 'string' ? settings.clockFiredDateKey : '';
+        settings.agendaFiredDateKey = typeof settings.agendaFiredDateKey === 'string' ? settings.agendaFiredDateKey : '';
         settings.timerDurationMinutes = Math.max(1, parseInt(settings.timerDurationMinutes || defaults.timerDurationMinutes, 10));
         settings.timerStartTime = typeof settings.timerStartTime === 'string' ? settings.timerStartTime : '';
         settings.agendaOverrunMinutes = clampInteger(settings.agendaOverrunMinutes, 1, 60, defaults.agendaOverrunMinutes);
@@ -691,7 +673,7 @@
       }
 
       function getDisplayNow() {
-        return new Date(Date.now() + state.offsetMinutes * 60000);
+        return new Date();
       }
 
       function dateKey(date) {
@@ -798,10 +780,6 @@
           month: 'long',
           day: 'numeric',
         });
-        $('offsetBadge').textContent = state.offsetMinutes
-          ? `補正中 ${state.offsetMinutes > 0 ? '+' : ''}${state.offsetMinutes}分`
-          : '端末時刻';
-
         checkClockAnnouncements(now);
         checkAgendaAnnouncements(now);
         checkScheduledTimerStart(now);
@@ -809,17 +787,34 @@
         lastDisplayTime = now;
       }
 
-      function checkClockAnnouncements(now) {
+      function resetClockFiredStateIfDateChanged(now) {
         const todayKey = dateKey(now);
-        if (todayKey !== lastClockDateKey) {
-          state.clockAnnouncements.forEach((announcement) => {
-            announcement.firedKey = '';
-          });
-          lastClockDateKey = todayKey;
-          saveSettingsToStorage();
-        }
+        if (state.clockFiredDateKey === todayKey) return;
+
+        state.clockAnnouncements.forEach((announcement) => {
+          announcement.firedKey = '';
+        });
+        state.clockFiredDateKey = todayKey;
+        saveSettingsToStorage();
+      }
+
+      function resetAgendaFiredStateIfDateChanged(now) {
+        const todayKey = dateKey(now);
+        if (state.agendaFiredDateKey === todayKey) return;
+
+        state.agendaItems.forEach((item) => {
+          item.firedKey = '';
+        });
+        state.agendaFiredDateKey = todayKey;
+        saveSettingsToStorage();
+      }
+
+      function checkClockAnnouncements(now) {
+        resetClockFiredStateIfDateChanged(now);
 
         if (!lastDisplayTime) return;
+
+        const todayKey = state.clockFiredDateKey;
 
         const previousSeconds = secondsOfDay(lastDisplayTime);
         const currentSeconds = secondsOfDay(now);
@@ -899,9 +894,6 @@
 
       function renderAgenda(now = getDisplayNow()) {
         const display = agendaDisplay(now);
-        $('agendaOffsetBadge').textContent = state.offsetMinutes
-          ? `補正中 ${state.offsetMinutes > 0 ? '+' : ''}${state.offsetMinutes}分`
-          : '端末時刻';
 
         if (display.status === 'empty') {
           $('agendaCountdown').textContent = '予定なし';
@@ -929,17 +921,11 @@
       }
 
       function checkAgendaAnnouncements(now) {
-        const todayKey = dateKey(now);
-        if (todayKey !== lastAgendaDateKey) {
-          state.agendaItems.forEach((item) => {
-            item.firedKey = '';
-          });
-          lastAgendaDateKey = todayKey;
-          saveSettingsToStorage();
-        }
+        resetAgendaFiredStateIfDateChanged(now);
 
         if (!lastDisplayTime) return;
 
+        const todayKey = state.agendaFiredDateKey;
         const previousSeconds = secondsOfDay(lastDisplayTime);
         const currentSeconds = secondsOfDay(now);
         sortedAgendaItems().forEach((item) => {
@@ -1079,7 +1065,6 @@
       }
 
       function renderSettings() {
-        $('offsetInput').value = state.offsetMinutes;
         $('rateInput').value = state.voice.rate;
         $('timerDurationInput').value = state.timerDurationMinutes;
         $('timerStartTimeInput').value = state.timerStartTime;
@@ -1154,7 +1139,6 @@
       }
 
       function collectSettingsFromForm() {
-        state.offsetMinutes = parseInt($('offsetInput').value || '0', 10);
         state.timerDurationMinutes = Math.max(1, parseInt($('timerDurationInput').value || '1', 10));
         state.timerStartTime = $('timerStartTimeInput').value;
         state.lastTimerStartKey = '';
@@ -1267,7 +1251,6 @@
         $('voiceBtn').addEventListener('click', () => speak('音声を有効化しました'));
         $('startPauseBtn').addEventListener('click', () => (timer.running ? pauseTimer() : startTimer()));
         $('resetBtn').addEventListener('click', () => rebuildTimer());
-        $('resetOffsetBtn').addEventListener('click', () => { $('offsetInput').value = 0; });
         $('resetClockFired').addEventListener('click', resetClockAnnouncementState);
         $('addAgendaItem').addEventListener('click', addAgendaItem);
         $('agendaItems').addEventListener('click', handleAgendaAction);
@@ -1323,6 +1306,7 @@
         }
 
         collectSettingsFromForm();
+        lastDisplayTime = getDisplayNow();
         saveSettingsToStorage();
         applyTheme();
         rebuildTimer();
