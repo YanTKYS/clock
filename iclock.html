@@ -503,6 +503,7 @@
       let speechQueue = [];
       let speechActive = false;
       let speechActiveId = '';
+      let speechGeneration = 0;
       let speechIds = new Set();
 
       function loadSettings() {
@@ -619,10 +620,12 @@
         const id = eventId || `manual-${Date.now()}-${Math.random()}`;
         if (speechIds.has(id)) return;
 
-        if (speechQueue.length >= 5) {
+        while (speechQueue.length + (speechActive ? 1 : 0) >= 5 && speechQueue.length > 0) {
           const dropped = speechQueue.shift();
           if (dropped) speechIds.delete(dropped.id);
         }
+
+        if (speechQueue.length + (speechActive ? 1 : 0) >= 5) return;
 
         speechQueue.push({ id, message });
         speechIds.add(id);
@@ -633,28 +636,33 @@
         if (speechActive || !speechQueue.length || !('speechSynthesis' in window)) return;
 
         const item = speechQueue.shift();
+        const generation = speechGeneration;
         speechActive = true;
         speechActiveId = item.id;
+
+        const finish = () => {
+          if (generation !== speechGeneration) return;
+          if (speechActiveId !== item.id) return;
+
+          speechIds.delete(item.id);
+          speechActive = false;
+          speechActiveId = '';
+          processSpeechQueue();
+        };
 
         const utterance = new SpeechSynthesisUtterance(item.message.slice(0, 160));
         utterance.lang = 'ja-JP';
         utterance.rate = Number(state.voice.rate) || 1;
-        utterance.onend = finishCurrentSpeech;
-        utterance.onerror = finishCurrentSpeech;
+        utterance.onend = finish;
+        utterance.onerror = finish;
         speechSynthesis.speak(utterance);
         showToast(`読み上げ: ${item.message}`);
       }
 
-      function finishCurrentSpeech() {
-        if (speechActiveId) speechIds.delete(speechActiveId);
-        speechActive = false;
-        speechActiveId = '';
-        processSpeechQueue();
-      }
-
       function cancelSpeechQueue() {
+        speechGeneration += 1;
         speechQueue = [];
-        speechIds = new Set();
+        speechIds.clear();
         speechActive = false;
         speechActiveId = '';
         if (window.speechSynthesis) speechSynthesis.cancel();
