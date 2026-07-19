@@ -293,22 +293,23 @@
     .agenda-stack {
       display: grid;
       justify-items: center;
-      gap: clamp(.2rem, .9vh, .65rem);
+      align-content: center;
+      gap: 0;
       width: 100%;
+      min-height: 100%;
       padding: 0 1rem;
     }
 
     .agenda-delta {
-      display: flex;
-      align-items: baseline;
-      justify-content: center;
-      gap: clamp(.45rem, 1.6vw, 1.2rem);
-      line-height: .9;
+      display: grid;
+      justify-items: center;
+      gap: 0;
+      line-height: .85;
     }
 
     .agenda-delta-label {
       color: var(--muted);
-      font-size: clamp(2rem, 5vw, 4.5rem);
+      font-size: min(7vw, 8vh);
       font-weight: 800;
       letter-spacing: 0;
     }
@@ -316,16 +317,23 @@
     .agenda-delta-value {
       font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
       font-variant-numeric: tabular-nums lining-nums;
-      font-size: clamp(6rem, 19vw, 15rem);
+      max-width: 96vw;
+      margin-top: -.08em;
+      font-size: min(30vw, 52vh);
       font-weight: 850;
       letter-spacing: -.06em;
       line-height: .82;
+      white-space: nowrap;
+    }
+
+    .agenda-delta-value[data-long="true"] {
+      font-size: min(19vw, 42vh);
     }
 
     .agenda-message {
       max-width: min(92vw, 1200px);
       color: var(--text);
-      font-size: clamp(3rem, 9vw, 7rem);
+      font-size: min(12vw, 13vh);
       font-weight: 850;
       line-height: 1.08;
       overflow-wrap: anywhere;
@@ -334,7 +342,8 @@
     .agenda-title {
       max-width: min(92vw, 1200px);
       color: var(--text);
-      font-size: clamp(3rem, 8vw, 6.5rem);
+      font-size: min(10vw, 12vh);
+      margin-top: clamp(.15rem, .8vh, .6rem);
       font-weight: 800;
       line-height: 1.08;
       display: -webkit-box;
@@ -346,8 +355,8 @@
     }
 
     #agendaTime {
-      margin-top: 0;
-      font-size: clamp(2.2rem, 5vw, 4rem);
+      margin-top: clamp(.2rem, .7vh, .5rem);
+      font-size: min(7vw, 8vh);
       font-weight: 700;
     }
 
@@ -951,8 +960,10 @@
         const item = display.item;
         $('agendaMessage').hidden = true;
         $('agendaDelta').hidden = false;
+        const deltaText = formatAgendaDelta(display.seconds);
         $('agendaDeltaLabel').textContent = display.status === 'overrun' ? '超過' : 'あと';
-        $('agendaDeltaValue').textContent = formatAgendaDelta(display.seconds);
+        $('agendaDeltaValue').textContent = deltaText;
+        $('agendaDeltaValue').dataset.long = String(deltaText.length > 5);
         $('agendaTime').textContent = `${pad(item.hour)}:${pad(item.minute)}`;
         $('agendaTitle').textContent = item.title;
       }
