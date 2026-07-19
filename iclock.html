@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iClock - ローカル時計・タイマー</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --line: #cbd5e1;
+      --accent: #2563eb;
+      --accentText: #ffffff;
+      --warn: #b45309;
+      --danger: #b91c1c;
+      --shadow: 0 12px 30px rgba(15, 23, 42, .14);
+    }
+
+    [data-theme="dark"] {
+      --bg: #090e18;
+      --panel: #121a2a;
+      --text: #e5eefb;
+      --muted: #a7b5ca;
+      --line: #334155;
+      --accent: #60a5fa;
+      --accentText: #07111f;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --shadow: 0 12px 30px rgba(0, 0, 0, .45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+      font-variant-numeric: tabular-nums;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      min-height: 44px;
+      padding: .65rem .9rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button.primary,
+    .tab[aria-selected="true"] {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accentText);
+      font-weight: 700;
+    }
+
+    button.danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: .55rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    label {
+      display: grid;
+      gap: .25rem;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      padding: .35rem .5rem;
+    }
+
+    .tabs,
+    .actions,
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .45rem;
+    }
+
+    .stage {
+      min-height: calc(100vh - 58px);
+      display: grid;
+      place-items: center;
+      padding: 0 .35rem .35rem;
+    }
+
+    .mode {
+      width: min(100%, 1900px);
+      display: none;
+    }
+
+    .mode.active {
+      display: block;
+    }
+
+    .hero {
+      text-align: center;
+    }
+
+    .main-time {
+      font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-variant-numeric: tabular-nums lining-nums;
+      line-height: .84;
+      font-weight: 850;
+      letter-spacing: -.075em;
+      user-select: none;
+    }
+
+    .clock-face {
+      display: inline-block;
+    }
+
+    .clock-seconds {
+      position: fixed;
+      right: clamp(.75rem, 2vw, 2rem);
+      bottom: clamp(.55rem, 1.4vw, 1.4rem);
+      min-width: 2ch;
+      color: var(--muted);
+      font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: clamp(2rem, 7vw, 6.5rem);
+      font-weight: 800;
+      letter-spacing: 0;
+      opacity: .72;
+    }
+
+    .clock-meta {
+      position: fixed;
+      left: 50%;
+      bottom: clamp(.55rem, 1.4vw, 1.4rem);
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    #clockMode .main-time {
+      font-size: min(30vw, 70vh);
+    }
+
+    #timerMode .main-time {
+      font-size: min(34vw, 58vh);
+    }
+
+    .sub {
+      margin-top: .35rem;
+      color: var(--muted);
+      font-size: clamp(1rem, 3vw, 2rem);
+    }
+
+    .badge {
+      display: inline-block;
+      margin: .2rem;
+      padding: .25rem .65rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+    }
+
+    .controls {
+      justify-content: center;
+      margin-top: .55rem;
+    }
+
+    .panel {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(0, 0, 0, .35);
+    }
+
+    .panel.open {
+      display: grid;
+    }
+
+    .dialog {
+      width: min(1000px, 100%);
+      max-height: 92vh;
+      overflow: auto;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .dialog header {
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: .5rem;
+      background: var(--panel);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: .75rem;
+    }
+
+    .section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .row,
+    .announce-row,
+    .timer-announce-row {
+      display: grid;
+      align-items: end;
+      gap: .5rem;
+      margin: .5rem 0;
+    }
+
+    .row {
+      grid-template-columns: 2.2rem 1.2fr .7fr auto auto;
+    }
+
+    .announce-row {
+      grid-template-columns: 2.2rem .55fr .55fr 1.5fr;
+    }
+
+    .timer-announce-row {
+      grid-template-columns: 2.2rem .8fr 1.8fr;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      z-index: 20;
+      padding: .6rem 1rem;
+      border-radius: 999px;
+      background: var(--text);
+      color: var(--bg);
+      opacity: 0;
+      transform: translateX(-50%);
+      transition: .2s;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .status {
+      font-weight: 700;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .invalid {
+      border-color: var(--danger) !important;
+    }
+
+    @media (max-width: 720px) {
+      .top {
+        align-items: flex-start;
+      }
+
+      .row,
+      .announce-row,
+      .timer-announce-row {
+        grid-template-columns: 1fr;
+      }
+
+      #clockMode .main-time {
+        font-size: 20vw;
+      }
+
+      #timerMode .main-time {
+        font-size: 36vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <nav class="top" aria-label="モード切替">
+      <div class="tabs">
+        <button id="clockTab" class="tab" aria-selected="true">時計</button>
+        <button id="timerTab" class="tab" aria-selected="false">タイマー</button>
+      </div>
+      <div class="actions">
+        <button id="themeBtn">テーマ切替</button>
+        <button id="voiceBtn">音声を有効化</button>
+        <button id="settingsBtn" class="primary">設定</button>
+      </div>
+    </nav>
+
+    <main class="stage">
+      <section id="clockMode" class="mode active">
+        <div class="hero">
+          <div class="clock-face">
+            <div id="clockTime" class="main-time">00:00</div>
+          </div>
+          <div id="clockSeconds" class="clock-seconds">00</div>
+          <div class="clock-meta">
+            <span id="clockDate" class="sub"></span>
+            <span id="offsetBadge" class="badge">端末時刻</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="timerMode" class="mode">
+        <div class="hero">
+          <div id="timerTime" class="main-time">10:00</div>
+          <div class="sub">
+            <span id="timerStatus" class="badge status">停止中</span>
+          </div>
+          <div class="controls">
+            <button id="startPauseBtn" class="primary">開始</button>
+            <button id="resetBtn">リセット</button>
+          </div>
+          <p class="hint">ショートカット: Space=開始/一時停止/再開、R=リセット、Escape=設定を閉じる</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="settingsPanel" class="panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="dialog">
+      <header>
+        <h1 id="settingsTitle">設定</h1>
+        <button id="closeSettings">閉じる</button>
+      </header>
+
+      <div class="section">
+        <h2>時計</h2>
+        <div class="grid">
+          <label>
+            表示オフセット（分）
+            <input id="offsetInput" type="number" step="1">
+          </label>
+          <div>
+            <button id="resetOffsetBtn">現在時刻に戻す</button>
+            <p class="hint">時計読み上げ判定は端末の実時刻ではなく、オフセット後の表示時刻を基準にします。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>時計読み上げ（最大5件）</h2>
+        <div id="clockAnnounces"></div>
+        <button id="resetClockFired">時計読み上げ状態をリセット</button>
+      </div>
+
+      <div class="section">
+        <h2>タイマー</h2>
+        <div class="grid">
+          <label>
+            残り時間（分）
+            <input id="timerDurationInput" type="number" min="1" step="1">
+          </label>
+          <label>
+            開始時刻
+            <input id="timerStartTimeInput" type="time">
+          </label>
+        </div>
+        <p class="hint">開始時刻を設定すると、時計の表示時刻がその時刻を通過したときにタイマーを自動開始します。</p>
+      </div>
+
+      <div class="section">
+        <h2>タイマー読み上げ（最大5件）</h2>
+        <div id="timerAnnounces"></div>
+      </div>
+
+      <div class="section">
+        <h2>音声・保存</h2>
+        <div class="grid">
+          <label>
+            読み上げ速度
+            <input id="rateInput" type="number" min="0.5" max="1.5" step="0.1">
+          </label>
+          <label>
+            読み上げテスト文
+            <input id="testText" value="読み上げテストです">
+          </label>
+        </div>
+        <p id="voiceStatus" class="hint"></p>
+        <div class="controls">
+          <button id="testVoice">読み上げテスト</button>
+          <button id="saveSettings" class="primary">設定を保存</button>
+          <button id="resetAll" class="danger">設定を初期化</button>
+        </div>
+        <p class="hint">設定はこのブラウザのlocalStorageに保存され、外部送信されません。</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    'use strict';
+
+    (() => {
+      const STORAGE_KEY = 'iclock.settings.v1';
+      const defaults = {
+        version: 1,
+        mode: 'clock',
+        theme: 'auto',
+        offsetMinutes: 0,
+        timerDurationMinutes: 10,
+        timerStartTime: '',
+        lastTimerStartKey: '',
+        voice: { rate: 1 },
+        clockAnnouncements: [
+          { enabled: false, hour: 13, minute: 55, second: 0, text: '残り5分です' },
+        ],
+        timerAnnouncements: [
+          { enabled: true, minutes: 5, text: '残り5分です' },
+          { enabled: true, minutes: 0, text: '終了してください' },
+        ],
+      };
+
+      const $ = (id) => document.getElementById(id);
+      const clone = (object) => JSON.parse(JSON.stringify(object));
+      const setText = (id, value) => {
+        const element = $(id);
+        if (element) element.textContent = value;
+      };
+
+      let state = loadSettings();
+      let lastClockDateKey = '';
+      let lastDisplayTime = null;
+      let toastTimer = 0;
+      let timer = {
+        running: false,
+        done: false,
+        startMono: 0,
+        pausedElapsed: 0,
+        lastRemaining: null,
+        fired: new Set(),
+        zeroHandled: false,
+      };
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return clone(defaults);
+
+          const saved = JSON.parse(raw);
+          if (saved.version !== 1) throw new Error('Unsupported settings version');
+
+          return normalizeSettings({
+            ...clone(defaults),
+            ...saved,
+            voice: { ...defaults.voice, ...(saved.voice || {}) },
+          });
+        } catch (error) {
+          return clone(defaults);
+        }
+      }
+
+      function normalizeSettings(settings) {
+        settings.timerDurationMinutes = Math.max(1, parseInt(settings.timerDurationMinutes || defaults.timerDurationMinutes, 10));
+        settings.timerStartTime = typeof settings.timerStartTime === 'string' ? settings.timerStartTime : '';
+        delete settings.sequences;
+
+        settings.timerAnnouncements = (settings.timerAnnouncements || []).slice(0, 5).map((announcement) => {
+          const minutes = announcement.minutes ?? (announcement.seconds ? Math.ceil(Number(announcement.seconds) / 60) : 0);
+          return {
+            enabled: Boolean(announcement.enabled),
+            minutes: Math.max(0, Number(minutes) || 0),
+            text: announcement.text || '',
+          };
+        });
+
+        if (!settings.timerAnnouncements.length) {
+          settings.timerAnnouncements = clone(defaults.timerAnnouncements);
+        }
+
+        return settings;
+      }
+
+      function saveSettingsToStorage() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function showToast(message) {
+        $('toast').textContent = message;
+        $('toast').classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2400);
+      }
+
+      function pad(number) {
+        return String(number).padStart(2, '0');
+      }
+
+      function formatClock(date) {
+        return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      }
+
+      function formatSeconds(date) {
+        return pad(date.getSeconds());
+      }
+
+      function formatTimer(seconds) {
+        const safeSeconds = Math.max(0, Math.ceil(seconds));
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        const restSeconds = safeSeconds % 60;
+
+        if (hours > 0) return `${pad(hours)}:${pad(minutes)}:${pad(restSeconds)}`;
+        return `${pad(minutes)}:${pad(restSeconds)}`;
+      }
+
+      function getDisplayNow() {
+        return new Date(Date.now() + state.offsetMinutes * 60000);
+      }
+
+      function dateKey(date) {
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+      }
+
+      function secondsOfDay(date) {
+        return date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds() + date.getMilliseconds() / 1000;
+      }
+
+      function applyTheme() {
+        const theme = state.theme === 'auto'
+          ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : state.theme;
+
+        document.documentElement.dataset.theme = theme;
+        $('themeBtn').textContent = theme === 'dark' ? 'ライトへ' : 'ダークへ';
+      }
+
+      function setMode(mode) {
+        state.mode = mode;
+        saveSettingsToStorage();
+        $('clockMode').classList.toggle('active', mode === 'clock');
+        $('timerMode').classList.toggle('active', mode === 'timer');
+        $('clockTab').ariaSelected = mode === 'clock';
+        $('timerTab').ariaSelected = mode === 'timer';
+      }
+
+      function speak(text) {
+        const message = text.trim();
+        if (!message) return;
+
+        if (!('speechSynthesis' in window)) {
+          showToast('このブラウザは音声読み上げに未対応です');
+          return;
+        }
+
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message.slice(0, 160));
+        utterance.lang = 'ja-JP';
+        utterance.rate = Number(state.voice.rate) || 1;
+        speechSynthesis.speak(utterance);
+        showToast(`読み上げ: ${message}`);
+      }
+
+      function updateClock() {
+        const now = getDisplayNow();
+        $('clockTime').textContent = formatClock(now);
+        $('clockSeconds').textContent = formatSeconds(now);
+        $('clockDate').textContent = now.toLocaleDateString('ja-JP', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        $('offsetBadge').textContent = state.offsetMinutes
+          ? `補正中 ${state.offsetMinutes > 0 ? '+' : ''}${state.offsetMinutes}分`
+          : '端末時刻';
+
+        checkClockAnnouncements(now);
+        checkScheduledTimerStart(now);
+        lastDisplayTime = now;
+      }
+
+      function checkClockAnnouncements(now) {
+        const todayKey = dateKey(now);
+        if (todayKey !== lastClockDateKey) {
+          state.clockAnnouncements.forEach((announcement) => {
+            announcement.firedKey = '';
+          });
+          lastClockDateKey = todayKey;
+          saveSettingsToStorage();
+        }
+
+        if (!lastDisplayTime) return;
+
+        const previousSeconds = secondsOfDay(lastDisplayTime);
+        const currentSeconds = secondsOfDay(now);
+
+        state.clockAnnouncements.forEach((announcement, index) => {
+          if (!announcement.enabled || !announcement.text) return;
+
+          const targetSeconds = Number(announcement.hour) * 3600
+            + Number(announcement.minute) * 60
+            + (Number(announcement.second) || 0);
+          const firedKey = `${todayKey}-${index}-${targetSeconds}`;
+          const crossed = currentSeconds >= previousSeconds
+            ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
+            : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+
+          if (crossed && announcement.firedKey !== firedKey) {
+            announcement.firedKey = firedKey;
+            saveSettingsToStorage();
+            speak(announcement.text);
+          }
+        });
+      }
+
+      function timerDurationSeconds() {
+        return Math.max(1, Number(state.timerDurationMinutes) || 1) * 60;
+      }
+
+      function remainingSeconds() {
+        if (!timer.running) {
+          return Math.max(0, timerDurationSeconds() - timer.pausedElapsed);
+        }
+
+        const runningElapsed = (performance.now() - timer.startMono) / 1000;
+        return Math.max(0, timerDurationSeconds() - (runningElapsed + timer.pausedElapsed));
+      }
+
+      function rebuildTimer() {
+        timer.running = false;
+        timer.done = false;
+        timer.pausedElapsed = 0;
+        timer.lastRemaining = null;
+        timer.fired = new Set();
+        timer.zeroHandled = false;
+
+        if (window.speechSynthesis) speechSynthesis.cancel();
+        renderTimer();
+      }
+
+      function startTimer() {
+        if (timer.done) rebuildTimer();
+
+        if (!timer.running) {
+          timer.startMono = performance.now();
+          timer.running = true;
+          timer.lastRemaining = remainingSeconds();
+          showToast('タイマー開始');
+        }
+      }
+
+      function pauseTimer() {
+        if (!timer.running) return;
+
+        timer.pausedElapsed += (performance.now() - timer.startMono) / 1000;
+        timer.running = false;
+        showToast('一時停止');
+      }
+
+      function finishTimer() {
+        timer.done = true;
+        timer.running = false;
+        timer.pausedElapsed = timerDurationSeconds();
+        renderTimer();
+        showToast('タイマー終了');
+      }
+
+      function checkTimerAnnouncements(remaining) {
+        if (!timer.running) return;
+
+        const previous = timer.lastRemaining ?? remaining;
+        state.timerAnnouncements.forEach((announcement, index) => {
+          const threshold = Math.max(0, Number(announcement.minutes) || 0) * 60;
+          if (!announcement.enabled || !announcement.text) return;
+
+          if (!timer.fired.has(index) && previous > threshold && remaining <= threshold) {
+            timer.fired.add(index);
+            speak(announcement.text);
+          }
+        });
+
+        timer.lastRemaining = remaining;
+
+        if (remaining <= 0 && !timer.zeroHandled) {
+          timer.zeroHandled = true;
+          state.timerAnnouncements.forEach((announcement, index) => {
+            if (announcement.enabled && Number(announcement.minutes) === 0 && !timer.fired.has(index)) {
+              timer.fired.add(index);
+              speak(announcement.text);
+            }
+          });
+          setTimeout(() => finishTimer(), 250);
+        }
+      }
+
+      function renderTimer() {
+        const remaining = remainingSeconds();
+        checkTimerAnnouncements(remaining);
+        $('timerTime').textContent = formatTimer(remaining);
+        setText('timerStatus', timer.done ? '終了' : timer.running ? '動作中' : '停止中');
+        $('startPauseBtn').textContent = timer.running ? '一時停止' : (timer.pausedElapsed > 0 ? '再開' : '開始');
+      }
+
+      function checkScheduledTimerStart(now) {
+        if (!state.timerStartTime || timer.running || timer.done) return;
+        if (!lastDisplayTime) return;
+
+        const [hour, minute] = state.timerStartTime.split(':').map(Number);
+        if (!Number.isFinite(hour) || !Number.isFinite(minute)) return;
+
+        const targetSeconds = hour * 3600 + minute * 60;
+        const previousSeconds = secondsOfDay(lastDisplayTime);
+        const currentSeconds = secondsOfDay(now);
+        const todayKey = `${dateKey(now)}-${state.timerStartTime}`;
+        const crossed = currentSeconds >= previousSeconds
+          ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
+          : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+
+        if (crossed && state.lastTimerStartKey !== todayKey) {
+          state.lastTimerStartKey = todayKey;
+          saveSettingsToStorage();
+          startTimer();
+        }
+      }
+
+      function renderSettings() {
+        $('offsetInput').value = state.offsetMinutes;
+        $('rateInput').value = state.voice.rate;
+        $('timerDurationInput').value = state.timerDurationMinutes;
+        $('timerStartTimeInput').value = state.timerStartTime;
+        renderClockAnnouncements();
+        renderTimerAnnouncements();
+      }
+
+      function renderClockAnnouncements() {
+        const container = $('clockAnnounces');
+        container.innerHTML = '';
+
+        for (let index = 0; index < 5; index += 1) {
+          const announcement = state.clockAnnouncements[index] || { enabled: false, hour: 0, minute: 0, second: 0, text: '' };
+          container.insertAdjacentHTML('beforeend', `
+            <div class="announce-row">
+              <label>有効<input data-ca="${index}" data-k="enabled" type="checkbox" ${announcement.enabled ? 'checked' : ''}></label>
+              <label>時<input data-ca="${index}" data-k="hour" type="number" min="0" max="23" value="${announcement.hour}"></label>
+              <label>分/秒<input data-ca="${index}" data-k="minute" type="number" min="0" max="59" value="${announcement.minute}"><input data-ca="${index}" data-k="second" type="number" min="0" max="59" value="${announcement.second || 0}"></label>
+              <label>文章<input data-ca="${index}" data-k="text" value="${escapeHtml(announcement.text)}"></label>
+            </div>
+          `);
+        }
+      }
+
+      function renderTimerAnnouncements() {
+        const container = $('timerAnnounces');
+        container.innerHTML = '';
+
+        for (let index = 0; index < 5; index += 1) {
+          const announcement = state.timerAnnouncements[index] || { enabled: false, minutes: 0, text: '' };
+          container.insertAdjacentHTML('beforeend', `
+            <div class="timer-announce-row">
+              <label>有効<input data-ta="${index}" data-k="enabled" type="checkbox" ${announcement.enabled ? 'checked' : ''}></label>
+              <label>残り分<input data-ta="${index}" data-k="minutes" type="number" min="0" step="1" value="${announcement.minutes ?? 0}"></label>
+              <label>文章<input data-ta="${index}" data-k="text" value="${escapeHtml(announcement.text)}"></label>
+            </div>
+          `);
+        }
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"]/g, (char) => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+        }[char]));
+      }
+
+      function collectSettingsFromForm() {
+        state.offsetMinutes = parseInt($('offsetInput').value || '0', 10);
+        state.timerDurationMinutes = Math.max(1, parseInt($('timerDurationInput').value || '1', 10));
+        state.timerStartTime = $('timerStartTimeInput').value;
+        state.lastTimerStartKey = '';
+        state.voice.rate = Number($('rateInput').value) || 1;
+        state.clockAnnouncements = [];
+        state.timerAnnouncements = [];
+
+        document.querySelectorAll('[data-ca]').forEach((element) => {
+          const index = Number(element.dataset.ca);
+          const key = element.dataset.k;
+          state.clockAnnouncements[index] ??= {};
+          state.clockAnnouncements[index][key] = element.type === 'checkbox'
+            ? element.checked
+            : key === 'text' ? element.value : Number(element.value);
+        });
+
+        document.querySelectorAll('[data-ta]').forEach((element) => {
+          const index = Number(element.dataset.ta);
+          const key = element.dataset.k;
+          state.timerAnnouncements[index] ??= {};
+          state.timerAnnouncements[index][key] = element.type === 'checkbox'
+            ? element.checked
+            : key === 'text' ? element.value : Number(element.value);
+        });
+
+
+        state.clockAnnouncements.forEach((announcement) => {
+          announcement.firedKey = '';
+        });
+      }
+
+      function validateSettings() {
+        document.querySelectorAll('.invalid').forEach((element) => element.classList.remove('invalid'));
+        if (Number(state.timerDurationMinutes) >= 1) return true;
+
+        $('timerDurationInput').classList.add('invalid');
+        return false;
+      }
+
+      function openSettings() {
+        renderSettings();
+        $('settingsPanel').classList.add('open');
+        $('closeSettings').focus();
+      }
+
+      function closeSettings() {
+        $('settingsPanel').classList.remove('open');
+        $('settingsBtn').focus();
+      }
+
+      function bindEvents() {
+        $('clockTab').addEventListener('click', () => setMode('clock'));
+        $('timerTab').addEventListener('click', () => setMode('timer'));
+        $('settingsBtn').addEventListener('click', openSettings);
+        $('closeSettings').addEventListener('click', closeSettings);
+        $('voiceBtn').addEventListener('click', () => speak('音声を有効化しました'));
+        $('startPauseBtn').addEventListener('click', () => (timer.running ? pauseTimer() : startTimer()));
+        $('resetBtn').addEventListener('click', () => rebuildTimer());
+        $('resetOffsetBtn').addEventListener('click', () => { $('offsetInput').value = 0; });
+        $('resetClockFired').addEventListener('click', resetClockAnnouncementState);
+        $('testVoice').addEventListener('click', () => speak($('testText').value));
+        $('saveSettings').addEventListener('click', saveSettingsFromDialog);
+        $('resetAll').addEventListener('click', resetAllSettings);
+        $('themeBtn').addEventListener('click', toggleTheme);
+        document.addEventListener('keydown', handleShortcut);
+      }
+
+      function resetClockAnnouncementState() {
+        state.clockAnnouncements.forEach((announcement) => {
+          announcement.firedKey = '';
+        });
+        saveSettingsToStorage();
+        showToast('時計読み上げ状態をリセットしました');
+      }
+
+      function saveSettingsFromDialog() {
+        collectSettingsFromForm();
+        if (!validateSettings()) {
+          showToast('タイマーの残り時間を確認してください');
+          return;
+        }
+
+        saveSettingsToStorage();
+        applyTheme();
+        rebuildTimer();
+        showToast('設定を保存しました');
+        closeSettings();
+      }
+
+      function resetAllSettings() {
+        if (!confirm('設定を初期化しますか？')) return;
+
+        state = clone(defaults);
+        saveSettingsToStorage();
+        rebuildTimer();
+        applyTheme();
+        renderSettings();
+        showToast('初期化しました');
+      }
+
+      function toggleTheme() {
+        state.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        saveSettingsToStorage();
+        applyTheme();
+      }
+
+      function handleShortcut(event) {
+        const tagName = event.target.tagName;
+        if (event.key === 'Escape') closeSettings();
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tagName)) return;
+
+        if (event.code === 'Space' && state.mode === 'timer') {
+          event.preventDefault();
+          timer.running ? pauseTimer() : startTimer();
+        }
+
+        if (event.key.toLowerCase() === 'r' && state.mode === 'timer') {
+          rebuildTimer();
+        }
+      }
+
+      function init() {
+        applyTheme();
+        setMode(state.mode);
+        bindEvents();
+        rebuildTimer();
+        updateClock();
+        setInterval(updateClock, 250);
+        setInterval(renderTimer, 120);
+        $('voiceStatus').textContent = 'speechSynthesis' in window
+          ? 'ブラウザ標準のSpeech Synthesis APIを使用します。'
+          : '音声読み上げ非対応のブラウザです。';
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
