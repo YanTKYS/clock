@@ -290,23 +290,59 @@
       margin: .5rem 0;
     }
 
-    .agenda-title {
-      margin-top: .45rem;
-      color: var(--text);
-      font-size: clamp(2rem, 8vw, 7rem);
-      font-weight: 800;
-      line-height: 1.05;
+    .agenda-stack {
+      display: grid;
+      justify-items: center;
+      gap: clamp(.35rem, 1.4vh, .9rem);
+      padding: 0 1rem;
     }
 
-    .agenda-state {
-      margin-top: .25rem;
+    .agenda-delta {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: clamp(.45rem, 1.6vw, 1.2rem);
+      line-height: .9;
+    }
+
+    .agenda-delta-label {
       color: var(--muted);
-      font-size: clamp(1rem, 3vw, 2rem);
+      font-size: clamp(1.4rem, 4vw, 3.5rem);
+      font-weight: 800;
+      letter-spacing: 0;
     }
 
-    #agendaMode .main-time {
-      font-size: clamp(3.8rem, 16vw, 13rem);
-      letter-spacing: -.04em;
+    .agenda-delta-value {
+      font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      font-variant-numeric: tabular-nums lining-nums;
+      font-size: clamp(4rem, 14vw, 11rem);
+      font-weight: 850;
+      letter-spacing: -.055em;
+    }
+
+    .agenda-message {
+      max-width: min(92vw, 1200px);
+      color: var(--text);
+      font-size: clamp(2.2rem, 7vw, 6rem);
+      font-weight: 850;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .agenda-title {
+      max-width: min(92vw, 1200px);
+      color: var(--text);
+      font-size: clamp(2rem, 6vw, 5rem);
+      font-weight: 800;
+      line-height: 1.08;
+      overflow-wrap: break-word;
+      word-break: keep-all;
+    }
+
+    #agendaTime {
+      margin-top: 0;
+      font-size: clamp(1.4rem, 3vw, 2.5rem);
+      font-weight: 700;
     }
 
     .settings-panel[data-mode="clock"] .setting-timer,
@@ -413,13 +449,14 @@
       </section>
 
       <section id="agendaMode" class="mode">
-        <div class="hero">
-          <div id="agendaCountdown" class="main-time">予定なし</div>
-          <div id="agendaTime" class="sub"></div>
-          <div id="agendaTitle" class="agenda-title"></div>
-          <div class="agenda-meta bottom-meta">
-            <span id="agendaState" class="agenda-state"></span>
+        <div class="hero agenda-stack">
+          <div id="agendaMessage" class="agenda-message">予定なし</div>
+          <div id="agendaDelta" class="agenda-delta" hidden>
+            <span id="agendaDeltaLabel" class="agenda-delta-label">あと</span>
+            <span id="agendaDeltaValue" class="agenda-delta-value">00:00</span>
           </div>
+          <div id="agendaTime" class="sub"></div>
+          <div id="agendaTitle" class="agenda-title">設定から予定を追加してください</div>
         </div>
       </section>
     </main>
@@ -862,6 +899,15 @@
         if (!items.length) return { status: 'empty' };
 
         const currentSeconds = secondsOfDay(now);
+        const next = items.find((item) => agendaSeconds(item) > currentSeconds);
+        if (next) {
+          return {
+            status: 'upcoming',
+            item: next,
+            seconds: agendaSeconds(next) - currentSeconds,
+          };
+        }
+
         const overrunSeconds = state.agendaOverrunMinutes * 60;
         let latestPast = null;
         items.forEach((item) => {
@@ -880,15 +926,6 @@
           };
         }
 
-        const next = items.find((item) => agendaSeconds(item) > currentSeconds);
-        if (next) {
-          return {
-            status: 'upcoming',
-            item: next,
-            seconds: agendaSeconds(next) - currentSeconds,
-          };
-        }
-
         return { status: 'done' };
       }
 
@@ -896,28 +933,30 @@
         const display = agendaDisplay(now);
 
         if (display.status === 'empty') {
-          $('agendaCountdown').textContent = '予定なし';
-          $('agendaTime').textContent = '';
-          $('agendaTitle').textContent = '設定から予定を追加してください';
-          $('agendaState').textContent = '有効な予定がありません';
+          renderAgendaMessage('予定なし', '設定から予定を追加してください');
           return;
         }
 
         if (display.status === 'done') {
-          $('agendaCountdown').textContent = '本日の予定は終了しました';
-          $('agendaTime').textContent = '';
-          $('agendaTitle').textContent = '';
-          $('agendaState').textContent = '最終予定の超過表示期間を過ぎました';
+          renderAgendaMessage('本日の予定は終了しました', '');
           return;
         }
 
         const item = display.item;
-        $('agendaCountdown').textContent = display.status === 'overrun'
-          ? `${formatAgendaDelta(display.seconds)}超過`
-          : `あと ${formatAgendaDelta(display.seconds)}`;
+        $('agendaMessage').hidden = true;
+        $('agendaDelta').hidden = false;
+        $('agendaDeltaLabel').textContent = display.status === 'overrun' ? '超過' : 'あと';
+        $('agendaDeltaValue').textContent = formatAgendaDelta(display.seconds);
         $('agendaTime').textContent = `${pad(item.hour)}:${pad(item.minute)}`;
         $('agendaTitle').textContent = item.title;
-        $('agendaState').textContent = display.status === 'overrun' ? '超過中' : '次の予定';
+      }
+
+      function renderAgendaMessage(message, detail) {
+        $('agendaMessage').hidden = false;
+        $('agendaDelta').hidden = true;
+        $('agendaMessage').textContent = message;
+        $('agendaTime').textContent = '';
+        $('agendaTitle').textContent = detail;
       }
 
       function checkAgendaAnnouncements(now) {
