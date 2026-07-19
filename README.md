@@ -73,6 +73,17 @@ GitHub Pages上でも公開確認用に表示できます。公開先URLは `htt
 
 正式なローカル利用方法は、引き続きリポジトリ直下の `iclock.html` をブラウザで直接開く方式です。GitHub Pages版は外部公開環境で動作するため、公開状態の表示確認用として扱ってください。
 
+
+## GitHub Pages
+
+GitHub Pages上でも公開確認用に表示できます。公開先URLは `https://yantkys.github.io/clock/` を想定しています。
+
+公開内容は `main` ブランチの `iclock.html` からGitHub Actionsで自動生成される `_site/index.html` です。`index.html` はリポジトリでは管理せず、公開用成果物としてのみ生成します。
+
+初回利用時は、GitHubの `Settings` → `Pages` → `Build and deployment` → `Source` を `GitHub Actions` に設定してください。設定を自動化したい場合は、Pagesの書き込み権限を持つPersonal Access TokenをリポジトリSecret `PAGES_TOKEN` として登録すると、workflow内の `actions/configure-pages` がPages有効化を試行します。Pagesが未設定で `PAGES_TOKEN` もない場合、デプロイ時にGitHub Pages未有効化エラーになるため、先にSource設定を確認してください。
+
+正式なローカル利用方法は、引き続きリポジトリ直下の `iclock.html` をブラウザで直接開く方式です。GitHub Pages版は外部公開環境で動作するため、公開状態の表示確認用として扱ってください。
+
 ## 外部通信
 
 このツールは外部通信を行いません。個人情報や利用情報を外部送信しません。
