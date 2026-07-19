@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Timer</title>
+    <style>
+        body {
+            background-color: white;
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        #timer { font-size: 20vw; font-weight: bold; margin-bottom: 20px; }
+        
+        /* 操作可能なシークバー */
+        input[type=range] {
+            width: 80%;
+            margin-bottom: 40px;
+            cursor: pointer;
+        }
+
+        .controls { display: flex; gap: 15px; }
+        button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        button:hover { background-color: #e0e0e0; }
+    </style>
+</head>
+<body>
+
+    <div id="timer">15:00</div>
+    
+    <!-- 操作可能なシークバー -->
+    <input type="range" id="seekBar" min="0" max="900" value="900">
+
+    <div class="controls">
+        <button onclick="startTimer()">開始</button>
+        <button onclick="pauseTimer()">一時停止</button>
+        <button onclick="resetTimer()">リセット</button>
+    </div>
+
+    <script>
+        const INITIAL_TIME = 15 * 60; // 900秒
+        let timeLeft = INITIAL_TIME;
+        let timerId = null;
+
+        const timerDisplay = document.getElementById('timer');
+        const seekBar = document.getElementById('seekBar');
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const s = (timeLeft % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${m}:${s}`;
+            seekBar.value = timeLeft;
+        }
+
+        // シークバー操作時のイベント
+        seekBar.addEventListener('input', (e) => {
+            pauseTimer();
+            timeLeft = parseInt(e.target.value);
+            updateDisplay();
+        });
+
+        function speak(text) {
+            speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ja-JP';
+            speechSynthesis.speak(utterance);
+        }
+
+        function startTimer() {
+            if (timerId) return;
+            timerId = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(timerId);
+                    timerId = null;
+                    speak("終了です");
+                    return;
+                }
+                timeLeft--;
+                updateDisplay();
+
+                if (timeLeft === 300) speak("残り5分です");
+                if (timeLeft === 60) speak("残り1分です");
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerId);
+            timerId = null;
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timeLeft = INITIAL_TIME;
+            updateDisplay();
+        }
+    </script>
+</body>
+</html>
