@@ -15,6 +15,9 @@
       --accentText: #ffffff;
       --warn: #b45309;
       --danger: #b91c1c;
+      --overrun-bg: #fff7ed;
+      --overrun-border: #ea580c;
+      --overrun-text: #9a3412;
       --shadow: 0 12px 30px rgba(15, 23, 42, .14);
     }
 
@@ -28,6 +31,9 @@
       --accentText: #07111f;
       --warn: #fbbf24;
       --danger: #f87171;
+      --overrun-bg: rgba(127, 29, 29, .45);
+      --overrun-border: #fb923c;
+      --overrun-text: #fed7aa;
       --shadow: 0 12px 30px rgba(0, 0, 0, .45);
     }
 
@@ -307,6 +313,20 @@
       line-height: .85;
     }
 
+    .agenda-stack.is-overrun .agenda-delta {
+      padding: clamp(.5rem, 1.5vh, 1rem) clamp(1rem, 3vw, 2rem);
+      border: clamp(3px, .35vw, 6px) solid var(--overrun-border);
+      border-radius: 1rem;
+      background: var(--overrun-bg);
+      box-shadow: 0 0 0 clamp(2px, .25vw, 4px) rgba(234, 88, 12, .18);
+    }
+
+    .agenda-stack.is-overrun .agenda-delta-label,
+    .agenda-stack.is-overrun .agenda-delta-value {
+      color: var(--overrun-text);
+      font-weight: 900;
+    }
+
     .agenda-delta-label {
       color: var(--muted);
       font-size: min(7vw, 8vh);
@@ -467,7 +487,7 @@
         <div class="hero agenda-stack">
           <div id="agendaMessage" class="agenda-message">予定なし</div>
           <div id="agendaDelta" class="agenda-delta" hidden>
-            <span id="agendaDeltaLabel" class="agenda-delta-label">あと</span>
+            <span id="agendaDeltaLabel" class="agenda-delta-label" aria-live="polite">あと</span>
             <span id="agendaDeltaValue" class="agenda-delta-value">00:00</span>
           </div>
           <div id="agendaTime" class="sub"></div>
@@ -958,10 +978,13 @@
         }
 
         const item = display.item;
+        const overrun = display.status === 'overrun';
+        document.querySelector('#agendaMode .agenda-stack').classList.toggle('is-overrun', overrun);
         $('agendaMessage').hidden = true;
         $('agendaDelta').hidden = false;
         const deltaText = formatAgendaDelta(display.seconds);
-        $('agendaDeltaLabel').textContent = display.status === 'overrun' ? '超過' : 'あと';
+        const deltaLabel = overrun ? '！ 超過中 ！' : 'あと';
+        if ($('agendaDeltaLabel').textContent !== deltaLabel) $('agendaDeltaLabel').textContent = deltaLabel;
         $('agendaDeltaValue').textContent = deltaText;
         $('agendaDeltaValue').dataset.long = String(deltaText.length > 5);
         $('agendaTime').textContent = `${pad(item.hour)}:${pad(item.minute)}`;
@@ -969,6 +992,7 @@
       }
 
       function renderAgendaMessage(message, detail) {
+        document.querySelector('#agendaMode .agenda-stack').classList.remove('is-overrun');
         $('agendaMessage').hidden = false;
         $('agendaDelta').hidden = true;
         $('agendaMessage').textContent = message;
