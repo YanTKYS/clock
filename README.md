@@ -56,6 +56,8 @@ GitHub Pages上でも公開確認用に表示できます。公開先URLは `htt
 
 公開内容は `main` ブランチの `iclock.html` からGitHub Actionsで自動生成される `_site/index.html` です。`index.html` はリポジトリでは管理せず、公開用成果物としてのみ生成します。
 
+初回利用時は、GitHubの `Settings` → `Pages` → `Build and deployment` → `Source` を `GitHub Actions` に設定してください。
+
 正式なローカル利用方法は、引き続きリポジトリ直下の `iclock.html` をブラウザで直接開く方式です。GitHub Pages版は外部公開環境で動作するため、公開状態の表示確認用として扱ってください。
 
 ## 外部通信
