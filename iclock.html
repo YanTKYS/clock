@@ -275,7 +275,7 @@
     }
 
     .announce-row {
-      grid-template-columns: 3.2rem 5.5rem 9rem minmax(14rem, 1fr);
+      grid-template-columns: 3.2rem 5.5rem 5.5rem 5.5rem minmax(14rem, 1fr);
     }
 
     .timer-announce-row {
@@ -865,7 +865,8 @@
             <div class="announce-row">
               <label>有効<input data-ca="${index}" data-k="enabled" type="checkbox" ${announcement.enabled ? 'checked' : ''}></label>
               <label>時<input data-ca="${index}" data-k="hour" type="number" min="0" max="23" value="${announcement.hour}"></label>
-              <label>分/秒<input data-ca="${index}" data-k="minute" type="number" min="0" max="59" value="${announcement.minute}"><input data-ca="${index}" data-k="second" type="number" min="0" max="59" value="${announcement.second || 0}"></label>
+              <label>分<input data-ca="${index}" data-k="minute" type="number" min="0" max="59" value="${announcement.minute}"></label>
+              <label>秒<input data-ca="${index}" data-k="second" type="number" min="0" max="59" value="${announcement.second || 0}"></label>
               <label>文章<input data-ca="${index}" data-k="text" value="${escapeHtml(announcement.text)}"></label>
             </div>
           `);
