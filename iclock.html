@@ -615,6 +615,8 @@
       const clone = (object) => JSON.parse(JSON.stringify(object));
 
       let state = loadSettings();
+      // 設定画面での追加・並べ替えは、保存するまで実行中の設定へ反映しない
+      let settingsDraft = null;
       let lastDisplayTime = null;
       let toastTimer = 0;
       let timer = {
@@ -1182,10 +1184,11 @@
       }
 
       function renderSettings() {
-        $('rateInput').value = state.voice.rate;
-        $('timerDurationInput').value = state.timerDurationMinutes;
-        $('timerStartTimeInput').value = state.timerStartTime;
-        $('agendaOverrunInput').value = state.agendaOverrunMinutes;
+        const settings = settingsDraft || state;
+        $('rateInput').value = settings.voice.rate;
+        $('timerDurationInput').value = settings.timerDurationMinutes;
+        $('timerStartTimeInput').value = settings.timerStartTime;
+        $('agendaOverrunInput').value = settings.agendaOverrunMinutes;
         renderClockAnnouncements();
         renderTimerAnnouncements();
         renderAgendaItems();
@@ -1202,8 +1205,9 @@
       }
 
       function renderClockAnnouncements() {
+        const settings = settingsDraft || state;
         const emptyRow = { enabled: false, hour: 0, minute: 0, second: 0, text: '' };
-        renderAnnouncementRows('clockAnnounces', state.clockAnnouncements, emptyRow, (announcement, index) => `
+        renderAnnouncementRows('clockAnnounces', settings.clockAnnouncements, emptyRow, (announcement, index) => `
           <div class="announce-row">
             <label>有効<input data-ca="${index}" data-k="enabled" type="checkbox" ${announcement.enabled ? 'checked' : ''}></label>
             <label>時<input data-ca="${index}" data-k="hour" type="number" min="0" max="23" value="${announcement.hour}"></label>
@@ -1215,8 +1219,9 @@
       }
 
       function renderTimerAnnouncements() {
+        const settings = settingsDraft || state;
         const emptyRow = { enabled: false, minutes: 0, text: '' };
-        renderAnnouncementRows('timerAnnounces', state.timerAnnouncements, emptyRow, (announcement, index) => `
+        renderAnnouncementRows('timerAnnounces', settings.timerAnnouncements, emptyRow, (announcement, index) => `
           <div class="timer-announce-row">
             <label>有効<input data-ta="${index}" data-k="enabled" type="checkbox" ${announcement.enabled ? 'checked' : ''}></label>
             <label>残り分<input data-ta="${index}" data-k="minutes" type="number" min="0" max="${MAX_TIMER_MINUTES}" step="1" value="${announcement.minutes}"></label>
@@ -1226,10 +1231,11 @@
       }
 
       function renderAgendaItems() {
+        const settings = settingsDraft || state;
         const container = $('agendaItems');
         container.innerHTML = '';
 
-        state.agendaItems.forEach((item, index) => {
+        settings.agendaItems.forEach((item, index) => {
           container.insertAdjacentHTML('beforeend', `
             <div class="agenda-row">
               <label>有効<input data-ai="${index}" data-k="enabled" type="checkbox" ${item.enabled ? 'checked' : ''}></label>
@@ -1339,6 +1345,7 @@
       }
 
       function openSettings() {
+        settingsDraft = clone(state);
         renderSettings();
         $('settingsPanel').dataset.mode = state.mode;
         $('settingsPanel').classList.add('open');
@@ -1348,6 +1355,7 @@
       function closeSettings() {
         if (!isSettingsOpen()) return;
 
+        settingsDraft = null;
         $('settingsPanel').classList.remove('open');
         $('settingsBtn').focus();
       }
@@ -1382,13 +1390,13 @@
       }
 
       function addAgendaItem() {
-        state.agendaItems = collectAgendaItemsFromForm();
-        if (state.agendaItems.length >= MAX_AGENDA_ITEMS) {
+        settingsDraft.agendaItems = collectAgendaItemsFromForm();
+        if (settingsDraft.agendaItems.length >= MAX_AGENDA_ITEMS) {
           showToast(`予定は最大${MAX_AGENDA_ITEMS}件です`);
           return;
         }
 
-        state.agendaItems.push({ enabled: true, hour: 13, minute: 0, title: '新しい予定', announceEnabled: false, announceText: '' });
+        settingsDraft.agendaItems.push({ enabled: true, hour: 13, minute: 0, title: '新しい予定', announceEnabled: false, announceText: '' });
         renderAgendaItems();
       }
 
@@ -1398,14 +1406,14 @@
 
         const index = Number(button.dataset.index);
         const action = button.dataset.agendaAction;
-        state.agendaItems = collectAgendaItemsFromForm();
+        settingsDraft.agendaItems = collectAgendaItemsFromForm();
 
         if (action === 'delete') {
-          state.agendaItems.splice(index, 1);
+          settingsDraft.agendaItems.splice(index, 1);
         } else if (action === 'up' && index > 0) {
-          [state.agendaItems[index - 1], state.agendaItems[index]] = [state.agendaItems[index], state.agendaItems[index - 1]];
-        } else if (action === 'down' && index < state.agendaItems.length - 1) {
-          [state.agendaItems[index], state.agendaItems[index + 1]] = [state.agendaItems[index + 1], state.agendaItems[index]];
+          [settingsDraft.agendaItems[index - 1], settingsDraft.agendaItems[index]] = [settingsDraft.agendaItems[index], settingsDraft.agendaItems[index - 1]];
+        } else if (action === 'down' && index < settingsDraft.agendaItems.length - 1) {
+          [settingsDraft.agendaItems[index], settingsDraft.agendaItems[index + 1]] = [settingsDraft.agendaItems[index + 1], settingsDraft.agendaItems[index]];
         }
 
         renderAgendaItems();
@@ -1431,6 +1439,7 @@
         if (!confirm('設定を初期化しますか？')) return;
 
         state = clone(defaults);
+        settingsDraft = clone(state);
         lastDisplayTime = null;
         setMode(state.mode);
         $('settingsPanel').dataset.mode = state.mode;
