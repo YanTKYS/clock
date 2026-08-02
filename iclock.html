@@ -782,10 +782,18 @@
         return date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds() + date.getMilliseconds() / 1000;
       }
 
-      function crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds) {
-        return currentSeconds >= previousSeconds
-          ? previousSeconds < targetSeconds && targetSeconds <= currentSeconds
-          : targetSeconds > previousSeconds || targetSeconds <= currentSeconds;
+      function crossedDailyTarget(previousDate, currentDate, targetSeconds) {
+        if (!(previousDate instanceof Date) || currentDate <= previousDate) return false;
+
+        // 日付をまたいだ場合も「今日」の予定だけを判定する。秒数だけを比較すると、
+        // 端末時計を巻き戻した場合や数日ぶりの復帰を日付変更と誤認してしまう。
+        const target = new Date(currentDate);
+        const hour = Math.floor(targetSeconds / 3600);
+        const minute = Math.floor((targetSeconds % 3600) / 60);
+        const second = Math.floor(targetSeconds % 60);
+        const millisecond = Math.round((targetSeconds % 1) * 1000);
+        target.setHours(hour, minute, second, millisecond);
+        return previousDate < target && target <= currentDate;
       }
 
       const darkThemeQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -930,15 +938,12 @@
 
         const todayKey = state.clockFiredDateKey;
 
-        const previousSeconds = secondsOfDay(lastDisplayTime);
-        const currentSeconds = secondsOfDay(now);
-
         state.clockAnnouncements.forEach((announcement, index) => {
           if (!announcement.enabled || !announcement.text) return;
 
           const targetSeconds = announcement.hour * 3600 + announcement.minute * 60 + announcement.second;
           const firedKey = `${todayKey}-${index}-${targetSeconds}`;
-          const crossed = crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds);
+          const crossed = crossedDailyTarget(lastDisplayTime, now, targetSeconds);
 
           if (crossed && announcement.firedKey !== firedKey) {
             announcement.firedKey = firedKey;
@@ -1026,14 +1031,12 @@
         if (!lastDisplayTime) return;
 
         const todayKey = state.agendaFiredDateKey;
-        const previousSeconds = secondsOfDay(lastDisplayTime);
-        const currentSeconds = secondsOfDay(now);
         items.forEach((item) => {
           if (!item.announceEnabled || !item.announceText) return;
 
           const targetSeconds = agendaSeconds(item);
           const firedKey = `${todayKey}-${item.order}-${targetSeconds}`;
-          if (crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds) && item.firedKey !== firedKey) {
+          if (crossedDailyTarget(lastDisplayTime, now, targetSeconds) && item.firedKey !== firedKey) {
             state.agendaItems[item.order].firedKey = firedKey;
             saveSettingsToStorage();
             speak(item.announceText, `agenda-${firedKey}`);
@@ -1168,10 +1171,8 @@
         if (!Number.isFinite(hour) || !Number.isFinite(minute)) return;
 
         const targetSeconds = hour * 3600 + minute * 60;
-        const previousSeconds = secondsOfDay(lastDisplayTime);
-        const currentSeconds = secondsOfDay(now);
         const todayKey = `${dateKey(now)}-${state.timerStartTime}`;
-        const crossed = crossedTargetSeconds(previousSeconds, currentSeconds, targetSeconds);
+        const crossed = crossedDailyTarget(lastDisplayTime, now, targetSeconds);
 
         if (crossed && state.lastTimerStartKey !== todayKey) {
           state.lastTimerStartKey = todayKey;
