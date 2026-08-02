@@ -737,8 +737,19 @@
         return Math.min(max, Math.max(min, Math.trunc(number)));
       }
 
+      let storageWriteFailed = false;
+
+      // localStorageが使えない環境（プライベートブラウジングやストレージ制限など）でも、
+      // 保存に失敗しただけで呼び出し元の画面更新処理が止まらないようにする
       function saveSettingsToStorage() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch {
+          if (!storageWriteFailed) {
+            storageWriteFailed = true;
+            showToast('設定を保存できません（ブラウザのストレージ制限）');
+          }
+        }
       }
 
       function showToast(message) {
