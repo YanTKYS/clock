@@ -114,9 +114,12 @@
       font-size: .92rem;
     }
 
+    /* 大きな数字が想定より横に広がっても、列幅が押し広げられて
+       モード切替タブが画面外へ流れ出さないようにする */
     .app {
       min-height: 100vh;
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto 1fr;
     }
 
@@ -139,6 +142,7 @@
     .stage {
       min-height: calc(100vh - 58px);
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
       place-items: center;
       padding: .15rem;
     }
@@ -193,9 +197,16 @@
       white-space: nowrap;
     }
 
+    /* 等幅数字1文字あたりの送り幅は字下げ込みで約 .525em ある。
+       HH:MM の5文字が画面幅からはみ出さない大きさに抑える */
     #clockMode .main-time,
     #timerMode .main-time {
-      font-size: min(40vw, 62vh);
+      font-size: min(36vw, 62vh);
+    }
+
+    /* HH:MM:SS は8文字になるため、同じ考え方でさらに小さくする */
+    #timerMode .main-time[data-long="true"] {
+      font-size: min(22vw, 62vh);
     }
 
     .sub {
@@ -439,7 +450,11 @@
 
       #clockMode .main-time,
       #timerMode .main-time {
-        font-size: 40vw;
+        font-size: 36vw;
+      }
+
+      #timerMode .main-time[data-long="true"] {
+        font-size: 22vw;
       }
     }
   </style>
@@ -520,7 +535,7 @@
         <div class="grid">
           <label>
             残り時間（分）
-            <input id="timerDurationInput" type="number" min="1" step="1">
+            <input id="timerDurationInput" type="number" min="1" max="1440" step="1">
           </label>
           <label>
             開始時刻
@@ -588,6 +603,10 @@
       const MAX_VOICE_RATE = 1.5;
       const TIMER_FINISH_DELAY_MS = 250;
       const SPEECH_TEXT_LIMIT = 160;
+      // 読み上げ完了通知が届かない場合の打ち切り時間。実際の読み上げを途中で
+      // 切らないよう、想定より十分長く見積もる
+      const SPEECH_WATCHDOG_BASE_MS = 3000;
+      const SPEECH_WATCHDOG_PER_CHAR_MS = 300;
       const MODES = ['clock', 'timer', 'agenda'];
       const defaults = {
         version: SETTINGS_VERSION,
@@ -636,6 +655,7 @@
       let speechActiveId = '';
       let speechGeneration = 0;
       let speechIds = new Set();
+      let speechWatchdogId = 0;
 
       function loadSettings() {
         try {
@@ -869,6 +889,8 @@
           if (generation !== speechGeneration) return;
           if (speechActiveId !== item.id) return;
 
+          clearTimeout(speechWatchdogId);
+          speechWatchdogId = 0;
           speechIds.delete(item.id);
           speechActive = false;
           speechActiveId = '';
@@ -876,12 +898,17 @@
         };
 
         try {
-          const utterance = new SpeechSynthesisUtterance(item.message.slice(0, SPEECH_TEXT_LIMIT));
+          const message = item.message.slice(0, SPEECH_TEXT_LIMIT);
+          const rate = clampNumber(state.voice.rate, MIN_VOICE_RATE, MAX_VOICE_RATE, defaults.voice.rate);
+          const utterance = new SpeechSynthesisUtterance(message);
           utterance.lang = 'ja-JP';
-          utterance.rate = clampNumber(state.voice.rate, MIN_VOICE_RATE, MAX_VOICE_RATE, defaults.voice.rate);
+          utterance.rate = rate;
           utterance.onend = finish;
           utterance.onerror = finish;
           speechSynthesis.speak(utterance);
+          // onend も onerror も呼ばれない環境があり、そのままではキューが再生中のまま
+          // 止まって以後の読み上げが二度と鳴らなくなるため、保険として打ち切る
+          speechWatchdogId = setTimeout(finish, SPEECH_WATCHDOG_BASE_MS + (message.length * SPEECH_WATCHDOG_PER_CHAR_MS) / rate);
           showToast(`読み上げ: ${item.message}`);
         } catch {
           // 発話に失敗してもキューが詰まらないよう次の1件へ進める
@@ -891,6 +918,8 @@
 
       function cancelSpeechQueue() {
         speechGeneration += 1;
+        clearTimeout(speechWatchdogId);
+        speechWatchdogId = 0;
         speechQueue = [];
         speechIds.clear();
         speechActive = false;
@@ -1169,7 +1198,10 @@
       function renderTimer() {
         const remaining = remainingSeconds();
         checkTimerAnnouncements(remaining);
-        $('timerTime').textContent = formatDuration(remaining);
+        const remainingText = formatDuration(remaining);
+        $('timerTime').textContent = remainingText;
+        // 1時間以上は HH:MM:SS で桁が増えるため、CSS側の表示サイズを切り替える
+        $('timerTime').dataset.long = String(remainingText.length > 5);
         $('timerStatus').textContent = timer.done ? '終了' : timer.running ? '動作中' : '停止中';
         $('startPauseBtn').textContent = timerButtonLabel();
       }
@@ -1441,11 +1473,21 @@
           return;
         }
 
+        const previousDurationMinutes = state.timerDurationMinutes;
         collectSettingsFromForm();
         lastDisplayTime = getDisplayNow();
         saveSettingsToStorage();
         applyTheme();
-        rebuildTimer();
+
+        // 計測中のタイマーを設定保存だけで巻き戻さない。読み上げ文の修正などのために
+        // 会議中へ設定を開くことがあるため、残り時間を変えたときだけ数え直す。
+        if (state.timerDurationMinutes !== previousDurationMinutes) {
+          rebuildTimer();
+        } else {
+          cancelSpeechQueue();
+          renderTimer();
+        }
+
         renderAgenda();
         showToast('設定を保存しました');
         closeSettings();
