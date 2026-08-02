@@ -1085,10 +1085,15 @@
         if (timer.done) rebuildTimer();
 
         if (!timer.running) {
+          const startingFromBeginning = timer.pausedElapsed === 0;
           timer.generation += 1;
           timer.startMono = performance.now();
           timer.running = true;
-          timer.lastRemaining = remainingSeconds();
+          // 設定時間と同じ閾値も開始直後に通過したものとして扱う。一方、再開時は
+          // 一時停止中に同じ閾値を再発火させないよう現在値から判定を再開する。
+          timer.lastRemaining = startingFromBeginning
+            ? timerDurationSeconds() + 0.001
+            : remainingSeconds();
           showToast('タイマー開始');
         }
       }
