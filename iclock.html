@@ -1171,7 +1171,7 @@
       }
 
       function checkScheduledTimerStart(now) {
-        if (!state.timerStartTime || timer.running) return;
+        if (!state.timerStartTime) return;
         if (!lastDisplayTime) return;
 
         const [hour, minute] = state.timerStartTime.split(':').map(Number);
