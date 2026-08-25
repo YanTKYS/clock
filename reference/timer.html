@@ -17,7 +17,6 @@
         }
         #timer { font-size: 20vw; font-weight: bold; margin-bottom: 20px; }
         
-        /* 操作可能なシークバー */
         input[type=range] {
             width: 80%;
             margin-bottom: 40px;
@@ -40,7 +39,6 @@
 
     <div id="timer">15:00</div>
     
-    <!-- 操作可能なシークバー -->
     <input type="range" id="seekBar" min="0" max="900" value="900">
 
     <div class="controls">
@@ -50,7 +48,7 @@
     </div>
 
     <script>
-        const INITIAL_TIME = 15 * 60; // 900秒
+        const INITIAL_TIME = 15 * 60;
         let timeLeft = INITIAL_TIME;
         let timerId = null;
 
@@ -64,7 +62,6 @@
             seekBar.value = timeLeft;
         }
 
-        // シークバー操作時のイベント
         seekBar.addEventListener('input', (e) => {
             pauseTimer();
             timeLeft = parseInt(e.target.value);

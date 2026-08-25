@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>iClock - ローカル時計・タイマー</title>
+  <title>iClock - ローカル時計・タイマー・予定時刻</title>
   <style>
     :root {
       --bg: #f8fafc;
@@ -542,7 +542,7 @@
             <input id="timerStartTimeInput" type="time">
           </label>
         </div>
-        <p class="hint">開始時刻を設定すると、時計の表示時刻がその時刻を通過したときにタイマーを自動開始します。</p>
+        <p class="hint">開始時刻を設定すると、その時刻を通過したときに、設定した残り時間からタイマーを自動開始します。</p>
       </div>
 
       <div class="section setting-timer">
@@ -558,7 +558,7 @@
             <input id="agendaOverrunInput" type="number" min="1" max="60" step="1">
           </label>
         </div>
-        <p class="hint">予定時刻を過ぎた直後は、この時間だけ直前の予定を超過表示します。判定には端末時刻を使います。</p>
+        <p class="hint">予定時刻を過ぎた直後は、この時間だけ直前の予定を超過表示します。</p>
         <div id="agendaItems"></div>
         <button id="addAgendaItem">予定を追加</button>
       </div>
@@ -676,6 +676,8 @@
       }
 
       function normalizeSettings(settings) {
+        // 削除済み機能の保存値。設定バージョンを据え置いたまま機能を外したため、
+        // ここで消さないと古い保存データに残り続ける
         delete settings.offsetMinutes;
         delete settings.sequences;
 
@@ -792,7 +794,6 @@
         return pad(date.getSeconds());
       }
 
-      // 負数表示はせず、1時間以上のときだけ HH:MM:SS へ桁を増やす
       function formatDuration(seconds) {
         const safeSeconds = Math.max(0, Math.ceil(seconds));
         const hours = Math.floor(safeSeconds / 3600);
@@ -949,7 +950,6 @@
         lastDisplayTime = now;
       }
 
-      // 日付が変わったら時計・予定の読み上げ済み状態をまとめて解除する
       function resetFiredStateIfDateChanged(now) {
         const todayKey = dateKey(now);
         let changed = false;
@@ -1242,7 +1242,6 @@
         renderAgendaItems();
       }
 
-      // 読み上げ設定は常にMAX_ANNOUNCEMENTS行を描画し、未設定の行は空欄で埋める
       function renderAnnouncementRows(containerId, rows, emptyRow, buildRow) {
         const container = $(containerId);
         container.innerHTML = '';
@@ -1326,7 +1325,6 @@
         clearFiredKeys(state.agendaItems);
       }
 
-      // 同じ data 属性を持つ入力欄を行番号ごとにまとめ、素のオブジェクト配列にする
       function collectRows(indexAttribute, textKeys) {
         const rows = [];
         $$(`[${indexAttribute}]`).forEach((element) => {
@@ -1425,7 +1423,6 @@
         $('resetAll').addEventListener('click', resetAllSettings);
         $('themeBtn').addEventListener('click', toggleTheme);
         document.addEventListener('keydown', handleShortcut);
-        // テーマが「自動」のときはOS設定の変更に追従する
         darkThemeQuery.addEventListener('change', () => {
           if (state.theme === 'auto') applyTheme();
         });
@@ -1520,7 +1517,7 @@
           return;
         }
 
-        // 設定パネル表示中、入力欄編集中、修飾キー併用時（ブラウザのCtrl+Rなど）は反応しない
+        // 修飾キー併用はブラウザ側の操作（Ctrl+Rの再読込など）なので、Rのリセットと衝突させない
         if (isSettingsOpen() || event.ctrlKey || event.metaKey || event.altKey) return;
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) return;
         if (state.mode !== 'timer') return;
