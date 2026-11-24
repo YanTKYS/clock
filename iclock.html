@@ -4,6 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>iClock - ローカル時計・タイマー・予定時刻</title>
+  <!--
+    「標示板テーマ」の配色・スタイルは design-skills v0.1.0 (https://github.com/YanTKYS/design-skills)
+    の Skill「l-signage-ui」（assets/tokens.css）を取り込んだものです。
+
+    MIT License
+
+    Copyright (c) 2026 YanTKYS
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+  -->
   <style>
     :root {
       --bg: #f8fafc;
@@ -556,44 +582,7 @@
       outline-offset: 2px;
     }
 
-    .sig-dots {
-      display: none;
-    }
-
-    :root[data-design="signage"] .sig-dots {
-      display: block;
-      margin-top: 1.2rem;
-      text-align: center;
-    }
-
-    :root[data-design="signage"] .sig-dots .l-dots {
-      height: 34px;
-      width: calc(var(--w) * 34px / 7);
-    }
-
-    :root[data-design="signage"] .l-dots .on {
-      fill: var(--ls-dot);
-    }
-
-    :root[data-design="signage"] .l-dots .off {
-      fill: var(--ls-dot);
-      opacity: var(--ls-dot-off);
-    }
-
     @media (forced-colors: active) {
-      :root[data-design="signage"] .l-dots {
-        forced-color-adjust: none;
-      }
-
-      :root[data-design="signage"] .l-dots .on {
-        fill: CanvasText;
-      }
-
-      :root[data-design="signage"] .l-dots .off {
-        fill: CanvasText;
-        opacity: .12;
-      }
-
       :root[data-design="signage"] button.primary,
       :root[data-design="signage"] .tab[aria-selected="true"],
       :root[data-design="signage"] .badge.status.is-running {
@@ -614,7 +603,7 @@
         <div class="design-picker">
           <select id="designSelect" aria-label="デザインテーマ">
             <option value="standard">標準テーマ</option>
-            <option value="signage">標識板テーマ</option>
+            <option value="signage">標示板テーマ</option>
           </select>
         </div>
         <button id="themeBtn">テーマ切替</button>
@@ -629,7 +618,6 @@
           <div class="clock-face">
             <div id="clockTime" class="main-time">00:00</div>
           </div>
-          <div id="clockSigDots" class="sig-dots" aria-hidden="true"></div>
           <div id="clockSeconds" class="clock-seconds">00</div>
           <div class="clock-meta bottom-meta">
             <span id="clockDate" class="sub"></span>
@@ -640,7 +628,6 @@
       <section id="timerMode" class="mode">
         <div class="hero">
           <div id="timerTime" class="main-time">10:00</div>
-          <div id="timerSigDots" class="sig-dots" aria-hidden="true"></div>
           <div class="timer-meta bottom-meta">
             <div>
               <span id="timerStatus" class="badge status">停止中</span>
@@ -661,7 +648,6 @@
             <span id="agendaDeltaLabel" class="agenda-delta-label" aria-live="polite">あと</span>
             <span id="agendaDeltaValue" class="agenda-delta-value">00:00</span>
           </div>
-          <div id="agendaSigDots" class="sig-dots" aria-hidden="true" hidden></div>
           <div id="agendaTime" class="sub"></div>
           <div id="agendaTitle" class="agenda-title">設定から予定を追加してください</div>
         </div>
@@ -940,45 +926,6 @@
         return String(number).padStart(2, '0');
       }
 
-      // 標識板テーマ用の5×7ドット文字。design-skills v0.1.0（l-signage-ui）の assets/dot-digits.js から取り込み。
-      // MIT License, Copyright (c) 2026 YanTKYS。ライセンス文言は Skill 同梱の LICENSE に従う。
-      // SVG は aria-hidden の装飾で、同じ数値は読める文字として別途 1 回だけ置く
-      function dotDigits(value, options) {
-        const opts = options || {};
-        const width = Math.max(1, opts.width == null ? 2 : opts.width);
-        const cls = String(opts.className || 'l-dots').replace(/[^\w -]/g, '');
-        const glyphs = {
-          0: ['01110', '11011', '11011', '11011', '11011', '11011', '01110'],
-          1: ['00110', '01110', '00110', '00110', '00110', '00110', '01111'],
-          2: ['01110', '11011', '00011', '00110', '01100', '11000', '11111'],
-          3: ['01110', '11011', '00011', '00110', '00011', '11011', '01110'],
-          4: ['00011', '00111', '01011', '11011', '11111', '00011', '00011'],
-          5: ['11111', '11000', '11110', '00011', '00011', '11011', '01110'],
-          6: ['00110', '01100', '11000', '11110', '11011', '11011', '01110'],
-          7: ['11111', '00011', '00110', '00110', '01100', '01100', '01100'],
-          8: ['01110', '11011', '11011', '01110', '11011', '11011', '01110'],
-          9: ['01110', '11011', '11011', '01111', '00011', '00110', '01100'],
-          ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
-        };
-        const chars = String(value).split('');
-        while (chars.length < width) chars.unshift(' ');
-
-        let x = 0;
-        const circles = [];
-        chars.forEach((char) => {
-          const glyph = glyphs[char] || glyphs[' '];
-          glyph.forEach((row, y) => {
-            row.split('').forEach((on, i) => {
-              circles.push(`<circle cx="${x + i + 0.5}" cy="${y + 0.5}" r="0.38" class="${on === '1' ? 'on' : 'off'}"/>`);
-            });
-          });
-          x += glyph[0].length + 1;
-        });
-
-        const w = Math.max(1, x - 1);
-        return `<svg class="${cls}" viewBox="0 0 ${w} 7" style="--w:${w}" aria-hidden="true" focusable="false">${circles.join('')}</svg>`;
-      }
-
       function formatClock(date) {
         return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
       }
@@ -1034,7 +981,7 @@
         applyDesign();
       }
 
-      // デザインの選択は配色（auto/light/dark）と区別する。標識板テーマは暗色固定で、
+      // デザインの選択は配色（auto/light/dark）と区別する。標示板テーマは暗色固定で、
       // 標準テーマの配色切り替えは反映されないため themeBtn を無効化する
       function applyDesign() {
         document.documentElement.dataset.design = state.design;
@@ -1044,7 +991,7 @@
         const themeBtn = $('themeBtn');
         const signage = state.design === 'signage';
         themeBtn.disabled = signage;
-        themeBtn.title = signage ? '標識板テーマでは配色の自動追従・ライト／ダーク切替は反映されません' : '';
+        themeBtn.title = signage ? '標示板テーマでは配色の自動追従・ライト／ダーク切替は反映されません' : '';
         themeBtn.textContent = signage
           ? '配色切替は無効'
           : (document.documentElement.dataset.theme === 'dark' ? 'ライトへ' : 'ダークへ');
@@ -1059,30 +1006,6 @@
         state.design = design;
         saveSettingsToStorage();
         applyDesign();
-        renderSigDots();
-      }
-
-      function isSignageTheme() {
-        return state.design === 'signage';
-      }
-
-      function renderSigDots() {
-        if (!isSignageTheme()) return;
-
-        if (state.mode === 'clock') {
-          setSigDots('clockSigDots', formatClock(getDisplayNow()).replace(':', ''));
-        } else if (state.mode === 'timer') {
-          const digits = formatDuration(remainingSeconds()).replace(/:/g, '');
-          setSigDots('timerSigDots', digits);
-        } else if (state.mode === 'agenda') {
-          const visible = !$('agendaDelta').hidden;
-          $('agendaSigDots').hidden = !visible;
-          if (visible) setSigDots('agendaSigDots', $('agendaDeltaValue').textContent.replace(/:/g, ''));
-        }
-      }
-
-      function setSigDots(id, digits) {
-        $(id).innerHTML = dotDigits(digits, { width: Math.max(2, digits.length) });
       }
 
       function setMode(mode) {
@@ -1182,7 +1105,6 @@
           month: 'long',
           day: 'numeric',
         });
-        renderSigDots();
         resetFiredStateIfDateChanged(now);
 
         // 予約開始は読み上げキューを作り直すため、読み上げ判定より先に処理する
