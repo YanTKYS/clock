@@ -139,6 +139,16 @@
       gap: .45rem;
     }
 
+    .design-picker select {
+      min-height: 44px;
+      padding: .65rem .7rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+    }
+
     .stage {
       min-height: calc(100vh - 58px);
       display: grid;
@@ -457,6 +467,139 @@
         font-size: 22vw;
       }
     }
+
+    /* Skill: l-signage-ui v0.1.0 (MIT Copyright (c) 2026 YanTKYS) の tokens.css を取り込み。
+       標準テーマに漏れないよう :root[data-design="signage"] に範囲を限定する */
+    :root[data-design="signage"] {
+      color-scheme: dark;
+
+      --ls-ground: #202321;
+      --ls-gap: #191c19;
+      --ls-bar: #30342f;
+      --ls-rail: #282d28;
+      --ls-cell: #262a27;
+      --ls-detail: #2b2e27;
+      --ls-text: #f1efe5;
+      --ls-muted: #a6aba2;
+      --ls-dot: #d5d9cf;
+      --ls-dot-off: .1;
+      --ls-amber: #f4b741;
+      --ls-amber-line: #d79f3d;
+      --ls-ink: #24251f;
+      --ls-field: #343a34;
+      --ls-field-line: #858f7f;
+      --ls-field-under: #a5ae9e;
+      --ls-placeholder: #9ea398;
+      --ls-row: #3a4038;
+      --ls-rule: #495146;
+      --ls-frame: #bcc1b2;
+      --ls-tick-off: #3a3f38;
+      --ls-tick-on: #c9cdc2;
+      --ls-error: #ff9f8f;
+      --ls-focus: #fffaf0;
+      --ls-font: 'BIZ UDPGothic', 'Hiragino Sans', 'Yu Gothic', 'Noto Sans CJK JP', 'Noto Sans JP', Meiryo, sans-serif;
+
+      --bg: var(--ls-ground);
+      --panel: var(--ls-bar);
+      --text: var(--ls-text);
+      --muted: var(--ls-muted);
+      --line: #454b43;
+      --accent: var(--ls-amber);
+      --accentText: var(--ls-ink);
+      --warn: var(--ls-amber-line);
+      --danger: var(--ls-error);
+      --overrun-bg: rgba(80, 33, 8, .55);
+      --overrun-border: var(--ls-error);
+      --overrun-text: var(--ls-error);
+      --shadow: 0 12px 30px rgba(0, 0, 0, .5);
+    }
+
+    :root[data-design="signage"] body {
+      font-family: var(--ls-font);
+    }
+
+    :root[data-design="signage"] button {
+      border-color: #454b43;
+    }
+
+    :root[data-design="signage"] .top {
+      border-bottom: 1px solid #3a4038;
+    }
+
+    :root[data-design="signage"] .dialog header {
+      background: var(--ls-bar);
+    }
+
+    /* 琥珀色は「今の状態」（選択中のモード・計測中・主操作）だけに使う。
+       状態は琥珀色の面に加えて文字（✓に相当する aria-selected・動作中表示）でも区別する */
+    :root[data-design="signage"] .badge.status.is-running {
+      border-color: var(--ls-amber);
+      background: var(--ls-amber);
+      color: var(--ls-ink);
+    }
+
+    :root[data-design="signage"] .tab[aria-selected="true"],
+    :root[data-design="signage"] .badge.status.is-running {
+      box-shadow: inset 0 0 0 1.5px rgba(36, 37, 31, .55);
+    }
+
+    :root[data-design="signage"] #themeBtn:disabled {
+      opacity: .45;
+    }
+
+    /* フォーカスの外枠は生成りのクリーム色。琥珀色の選択・琥珀色のボタンと混同しない */
+    :root[data-design="signage"] button:focus-visible,
+    :root[data-design="signage"] input:focus-visible,
+    :root[data-design="signage"] textarea:focus-visible,
+    :root[data-design="signage"] .design-picker select:focus-visible {
+      outline: 3px solid var(--ls-focus);
+      outline-offset: 2px;
+    }
+
+    .sig-dots {
+      display: none;
+    }
+
+    :root[data-design="signage"] .sig-dots {
+      display: block;
+      margin-top: 1.2rem;
+      text-align: center;
+    }
+
+    :root[data-design="signage"] .sig-dots .l-dots {
+      height: 34px;
+      width: calc(var(--w) * 34px / 7);
+    }
+
+    :root[data-design="signage"] .l-dots .on {
+      fill: var(--ls-dot);
+    }
+
+    :root[data-design="signage"] .l-dots .off {
+      fill: var(--ls-dot);
+      opacity: var(--ls-dot-off);
+    }
+
+    @media (forced-colors: active) {
+      :root[data-design="signage"] .l-dots {
+        forced-color-adjust: none;
+      }
+
+      :root[data-design="signage"] .l-dots .on {
+        fill: CanvasText;
+      }
+
+      :root[data-design="signage"] .l-dots .off {
+        fill: CanvasText;
+        opacity: .12;
+      }
+
+      :root[data-design="signage"] button.primary,
+      :root[data-design="signage"] .tab[aria-selected="true"],
+      :root[data-design="signage"] .badge.status.is-running {
+        border-color: Highlight;
+      }
+    }
   </style>
 </head>
 <body>
@@ -468,6 +611,12 @@
         <button id="agendaTab" class="tab" aria-selected="false">予定時刻</button>
       </div>
       <div class="actions">
+        <div class="design-picker">
+          <select id="designSelect" aria-label="デザインテーマ">
+            <option value="standard">標準テーマ</option>
+            <option value="signage">標識板テーマ</option>
+          </select>
+        </div>
         <button id="themeBtn">テーマ切替</button>
         <button id="voiceBtn">音声を有効化</button>
         <button id="settingsBtn" class="primary">設定</button>
@@ -480,6 +629,7 @@
           <div class="clock-face">
             <div id="clockTime" class="main-time">00:00</div>
           </div>
+          <div id="clockSigDots" class="sig-dots" aria-hidden="true"></div>
           <div id="clockSeconds" class="clock-seconds">00</div>
           <div class="clock-meta bottom-meta">
             <span id="clockDate" class="sub"></span>
@@ -490,6 +640,7 @@
       <section id="timerMode" class="mode">
         <div class="hero">
           <div id="timerTime" class="main-time">10:00</div>
+          <div id="timerSigDots" class="sig-dots" aria-hidden="true"></div>
           <div class="timer-meta bottom-meta">
             <div>
               <span id="timerStatus" class="badge status">停止中</span>
@@ -510,6 +661,7 @@
             <span id="agendaDeltaLabel" class="agenda-delta-label" aria-live="polite">あと</span>
             <span id="agendaDeltaValue" class="agenda-delta-value">00:00</span>
           </div>
+          <div id="agendaSigDots" class="sig-dots" aria-hidden="true" hidden></div>
           <div id="agendaTime" class="sub"></div>
           <div id="agendaTitle" class="agenda-title">設定から予定を追加してください</div>
         </div>
@@ -612,6 +764,7 @@
         version: SETTINGS_VERSION,
         mode: 'clock',
         theme: 'auto',
+        design: 'standard',
         timerDurationMinutes: 10,
         timerStartTime: '',
         lastTimerStartKey: '',
@@ -684,6 +837,7 @@
         settings.version = SETTINGS_VERSION;
         if (!MODES.includes(settings.mode)) settings.mode = defaults.mode;
         settings.theme = ['auto', 'light', 'dark'].includes(settings.theme) ? settings.theme : defaults.theme;
+        settings.design = ['standard', 'signage'].includes(settings.design) ? settings.design : defaults.design;
         settings.clockFiredDateKey = normalizeText(settings.clockFiredDateKey);
         settings.agendaFiredDateKey = normalizeText(settings.agendaFiredDateKey);
         settings.lastTimerStartKey = normalizeText(settings.lastTimerStartKey);
@@ -786,6 +940,45 @@
         return String(number).padStart(2, '0');
       }
 
+      // 標識板テーマ用の5×7ドット文字。design-skills v0.1.0（l-signage-ui）の assets/dot-digits.js から取り込み。
+      // MIT License, Copyright (c) 2026 YanTKYS。ライセンス文言は Skill 同梱の LICENSE に従う。
+      // SVG は aria-hidden の装飾で、同じ数値は読める文字として別途 1 回だけ置く
+      function dotDigits(value, options) {
+        const opts = options || {};
+        const width = Math.max(1, opts.width == null ? 2 : opts.width);
+        const cls = String(opts.className || 'l-dots').replace(/[^\w -]/g, '');
+        const glyphs = {
+          0: ['01110', '11011', '11011', '11011', '11011', '11011', '01110'],
+          1: ['00110', '01110', '00110', '00110', '00110', '00110', '01111'],
+          2: ['01110', '11011', '00011', '00110', '01100', '11000', '11111'],
+          3: ['01110', '11011', '00011', '00110', '00011', '11011', '01110'],
+          4: ['00011', '00111', '01011', '11011', '11111', '00011', '00011'],
+          5: ['11111', '11000', '11110', '00011', '00011', '11011', '01110'],
+          6: ['00110', '01100', '11000', '11110', '11011', '11011', '01110'],
+          7: ['11111', '00011', '00110', '00110', '01100', '01100', '01100'],
+          8: ['01110', '11011', '11011', '01110', '11011', '11011', '01110'],
+          9: ['01110', '11011', '11011', '01111', '00011', '00110', '01100'],
+          ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
+        };
+        const chars = String(value).split('');
+        while (chars.length < width) chars.unshift(' ');
+
+        let x = 0;
+        const circles = [];
+        chars.forEach((char) => {
+          const glyph = glyphs[char] || glyphs[' '];
+          glyph.forEach((row, y) => {
+            row.split('').forEach((on, i) => {
+              circles.push(`<circle cx="${x + i + 0.5}" cy="${y + 0.5}" r="0.38" class="${on === '1' ? 'on' : 'off'}"/>`);
+            });
+          });
+          x += glyph[0].length + 1;
+        });
+
+        const w = Math.max(1, x - 1);
+        return `<svg class="${cls}" viewBox="0 0 ${w} 7" style="--w:${w}" aria-hidden="true" focusable="false">${circles.join('')}</svg>`;
+      }
+
       function formatClock(date) {
         return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
       }
@@ -838,7 +1031,58 @@
           : state.theme;
 
         document.documentElement.dataset.theme = theme;
-        $('themeBtn').textContent = theme === 'dark' ? 'ライトへ' : 'ダークへ';
+        applyDesign();
+      }
+
+      // デザインの選択は配色（auto/light/dark）と区別する。標識板テーマは暗色固定で、
+      // 標準テーマの配色切り替えは反映されないため themeBtn を無効化する
+      function applyDesign() {
+        document.documentElement.dataset.design = state.design;
+        const designSelect = $('designSelect');
+        if (designSelect.value !== state.design) designSelect.value = state.design;
+
+        const themeBtn = $('themeBtn');
+        const signage = state.design === 'signage';
+        themeBtn.disabled = signage;
+        themeBtn.title = signage ? '標識板テーマでは配色の自動追従・ライト／ダーク切替は反映されません' : '';
+        themeBtn.textContent = signage
+          ? '配色切替は無効'
+          : (document.documentElement.dataset.theme === 'dark' ? 'ライトへ' : 'ダークへ');
+      }
+
+      function setDesign(design) {
+        if (state.design === design) {
+          applyDesign();
+          return;
+        }
+
+        state.design = design;
+        saveSettingsToStorage();
+        applyDesign();
+        renderSigDots();
+      }
+
+      function isSignageTheme() {
+        return state.design === 'signage';
+      }
+
+      function renderSigDots() {
+        if (!isSignageTheme()) return;
+
+        if (state.mode === 'clock') {
+          setSigDots('clockSigDots', formatClock(getDisplayNow()).replace(':', ''));
+        } else if (state.mode === 'timer') {
+          const digits = formatDuration(remainingSeconds()).replace(/:/g, '');
+          setSigDots('timerSigDots', digits);
+        } else if (state.mode === 'agenda') {
+          const visible = !$('agendaDelta').hidden;
+          $('agendaSigDots').hidden = !visible;
+          if (visible) setSigDots('agendaSigDots', $('agendaDeltaValue').textContent.replace(/:/g, ''));
+        }
+      }
+
+      function setSigDots(id, digits) {
+        $(id).innerHTML = dotDigits(digits, { width: Math.max(2, digits.length) });
       }
 
       function setMode(mode) {
@@ -938,6 +1182,7 @@
           month: 'long',
           day: 'numeric',
         });
+        renderSigDots();
         resetFiredStateIfDateChanged(now);
 
         // 予約開始は読み上げキューを作り直すため、読み上げ判定より先に処理する
@@ -1203,6 +1448,7 @@
         // 1時間以上は HH:MM:SS で桁が増えるため、CSS側の表示サイズを切り替える
         $('timerTime').dataset.long = String(remainingText.length > 5);
         $('timerStatus').textContent = timer.done ? '終了' : timer.running ? '動作中' : '停止中';
+        $('timerStatus').classList.toggle('is-running', timer.running && !timer.done);
         $('startPauseBtn').textContent = timerButtonLabel();
       }
 
@@ -1422,6 +1668,7 @@
         $('saveSettings').addEventListener('click', saveSettingsFromDialog);
         $('resetAll').addEventListener('click', resetAllSettings);
         $('themeBtn').addEventListener('click', toggleTheme);
+        $('designSelect').addEventListener('change', (event) => setDesign(event.target.value));
         document.addEventListener('keydown', handleShortcut);
         darkThemeQuery.addEventListener('change', () => {
           if (state.theme === 'auto') applyTheme();
