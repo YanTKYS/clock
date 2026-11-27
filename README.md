@@ -60,6 +60,14 @@
 
 Chromium系ブラウザを主対象に実装しています。表示の切替、タイマーの計測と終了、予定の残り時間・超過・終了表示、ショートカット、設定の保存と初期化は、Chromiumを自動操作して仮想時刻を進める方法で確認しています。主表示が画面幅に収まることは、16:9、4:3、5:4の横長・縦長で `MM:SS` と `HH:MM:SS` の両方について確認しています。
 
+## ライセンス
+
+自作部分（`iclock.html`、本README、`docs/` のスクリーンショット、`.github/` のworkflow）は [MIT License](LICENSE)（Copyright (c) 2026 YanTKYS）で提供します。
+
+* 標示板テーマは、同じ権利者の [design-skills](https://github.com/YanTKYS/design-skills) v0.1.0 の Skill「l-signage-ui」（MIT License）を取り込んでいます。`iclock.html` 冒頭のライセンス表示は、単体HTMLとして再配布する場合も残してください。同Skillの一式は `l-signage-ui.zip` に収録しており、zip内の `LICENSE` も同じMIT Licenseです。
+* ライセンス対象外（保留）: `reference/` の `clock.html`・`timer.html` は、権利表示がなく由来を確認できていないため、本ライセンスの対象に含めません。
+* 外部ライブラリ、CDN、外部フォント、外部素材は使用していません。
+
 ## 既知の制限
 
 * 実行中のタイマー状態は保存されません。計測中にページを再読込すると、停止状態から始まります。
